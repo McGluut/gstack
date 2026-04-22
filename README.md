@@ -2,6 +2,14 @@
 
 Portable fork of [garrytan/gstack](https://github.com/garrytan/gstack) for off-the-shelf use across hosts, shells, and agent runtimes. Original workflow and methodology credit belongs to Garry Tan's gstack; this fork claims the portability and distribution hardening.
 
+## Fork Note
+
+This repo is a fork, not a rewrite.
+
+- The workflow model, methodology, and original product vision come from Garry Tan's `gstack`.
+- The fork's claim is narrower: it makes that workflow easier to install, reason about, verify, and run across more hosts without private maintainer context.
+- Some of the README below preserves upstream first-person framing because it explains the original motivation for `gstack`. Read the sections labeled `Why This Fork Exists`, `What Changed In This Fork`, and `How To Give Input` for the fork-specific contract.
+
 > "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
 
 When I heard Karpathy say this, I wanted to find out how. How does one person ship like a team of twenty? Peter Steinberger built [OpenClaw](https://github.com/openclaw/openclaw) — 247K GitHub stars — essentially solo with AI agents. The revolution is here. A single builder with the right tooling can move faster than a traditional team.
@@ -53,6 +61,58 @@ This is not a claim that upstream is wrong. It is a claim that this fork is opti
 - State roots, temp roots, and helper discovery degrade explicitly instead of silently assuming one machine shape.
 - The default verification lane is productized for off-the-shelf use and completes reliably through `bun test`.
 - Agent-facing repo docs now explain what to assume and what not to assume without relying on any external continuity log.
+
+## Fork Delta In Plain English
+
+If upstream feels like "Garry's working software factory, published," this fork tries to feel like "a distribution someone else can actually install and trust."
+
+The practical delta is:
+- fewer hidden assumptions about home directories, shells, helper binaries, and one preferred host
+- clearer skill contracts near the top of each skill instead of burying them in long prompts
+- more honest fallback behavior when a capability is missing
+- a default test entrypoint that closes on Windows instead of depending on one Bun runner shape
+- repo docs that tell both humans and agents what this fork is better for, without private context
+
+This fork is not claiming a different philosophy of building software. It is claiming a better off-the-shelf delivery contract.
+
+## How To Give Input
+
+High-signal input is about behavioral delta, not vibe.
+
+If you are a user, the most useful reports include:
+- your host and environment: `Claude Code`, `Codex`, `OpenClaw`, OS, shell, install mode
+- the exact skill or command you ran
+- what you expected to happen
+- what actually happened
+- whether the fork degraded honestly or made a hidden assumption
+- a short repro command or transcript snippet
+
+If you are an agent or agent author, the most useful reports include:
+- what you assumed from the repo surface
+- which assumption turned out to be wrong
+- whether the failure was caused by missing prerequisites, path assumptions, bad routing, or unclear stop conditions
+- what repo-local wording or contract would have prevented the mistake
+
+Paste this when opening an issue or PR:
+
+```md
+## Surface
+- Skill / command:
+- Host / runtime:
+- OS / shell:
+- Install mode:
+
+## Expected
+
+## Actual
+
+## Hidden assumption or unclear contract
+
+## Repro
+
+## Suggested fix
+- docs only / skill contract / helper logic / test / other
+```
 
 ## Quick start
 

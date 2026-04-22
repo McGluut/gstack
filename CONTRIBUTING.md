@@ -14,6 +14,42 @@ bun install                    # install dependencies
 bin/dev-setup                  # activate dev mode
 ```
 
+## What Input Helps This Fork
+
+This fork is trying to improve `gstack` as a public distribution, not replace the upstream methodology. The best input is therefore specific about where the public contract is still weak.
+
+High-signal reports usually include:
+- host and runtime: `Claude Code`, `Codex`, `OpenClaw`, or another supported host
+- OS and shell
+- install mode: global, project-local, team mode, host-specific setup
+- exact skill, command, or doc surface
+- expected behavior vs actual behavior
+- the hidden assumption that caused the miss
+- whether the fix belongs in docs, a skill contract, helper logic, or a test
+
+Use this issue or PR scaffold:
+
+```md
+## Surface
+- Skill / command:
+- Host / runtime:
+- OS / shell:
+- Install mode:
+
+## Expected
+
+## Actual
+
+## Hidden assumption or unclear contract
+
+## Repro
+
+## Suggested fix
+- docs only / skill contract / helper logic / test / other
+```
+
+If you are improving a skill, prefer changes that make the skill more portable, more explicit, or more honest about fallback behavior. Avoid adding repo-local lore that only works for one maintainer machine shape.
+
 > **Full clone vs shallow.** The README's user-facing install uses `--depth 1` for speed. As a contributor, use a full clone (no `--depth` flag) — you'll need history for `git log`, `git blame`, `git bisect`, and reviewing PRs against earlier versions. If you already have a `--depth 1` clone from following the README, promote it to a full clone with `git fetch --unshallow`.
 
 Now edit any `SKILL.md`, invoke it in Claude Code (e.g. `/review`), and see your changes live. When you're done developing:

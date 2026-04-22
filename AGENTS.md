@@ -22,6 +22,25 @@ This repo is the portable fork of upstream `gstack`.
 - Treat live-fire, periodic, or environment-heavy lanes as opt-in. The default promise is the free verification lane.
 - Use `bun test` as the stable default verification entrypoint. Use `bun run test:monolithic` only when debugging the legacy Bun runner behavior directly.
 
+## Input Contract
+
+If you are filing feedback or preparing a patch for this fork, optimize for behavioral delta.
+
+- Name the exact skill, command, or doc surface that failed.
+- State the host, runtime, OS, shell, and install mode.
+- Say which assumption the repo invited you to make.
+- Say whether the failure was a path assumption, missing prerequisite, unclear stop condition, routing ambiguity, or dishonest degradation.
+- Prefer a small repro over a long narrative.
+- If you are proposing text, prefer wording that would have prevented the wrong inference for both a human and an agent.
+
+Low-signal feedback:
+- "doesn't work"
+- "confusing"
+- "better UX please"
+
+High-signal feedback:
+- "`/pair-agent` on Windows Git Bash assumed daemon readiness within 15s; the repo promise should either widen the readiness budget or document the slower startup path."
+
 ## Available skills
 
 Skills install into host-specific skill directories after setup. Invoke them by name, for example
