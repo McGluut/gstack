@@ -36,9 +36,18 @@ hooks:
 Lock file edits to a specific directory. Any Edit or Write operation targeting
 a file outside the allowed path will be **blocked** (not just warned).
 
+## Quick Contract
+
+- Prerequisites: AskUserQuestion access for the boundary path, a resolvable target directory, and a working `check-freeze.sh` hook.
+- Outputs: a persisted session-local edit boundary that blocks Edit and Write outside the chosen path.
+- Stop when: a valid absolute directory is saved as the freeze boundary, or the supplied path cannot be resolved.
+- If unavailable: if the path cannot be resolved or the hook cannot read the state file, stop and name the missing prerequisite instead of claiming edits are frozen.
+
 ```bash
-mkdir -p ~/.gstack/analytics
-echo '{"skill":"freeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+STATE_ROOT="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_ROOT" ] || STATE_ROOT=".gstack"
+mkdir -p "$STATE_ROOT/analytics"
+echo '{"skill":"freeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> "$STATE_ROOT/analytics/skill-usage.jsonl" 2>/dev/null || true
 ```
 
 ## Setup
@@ -59,7 +68,8 @@ echo "$FREEZE_DIR"
 2. Ensure trailing slash and save to the freeze state file:
 ```bash
 FREEZE_DIR="${FREEZE_DIR%/}/"
-STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.gstack}"
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_DIR" ] || STATE_DIR=".gstack"
 mkdir -p "$STATE_DIR"
 echo "$FREEZE_DIR" > "$STATE_DIR/freeze-dir.txt"
 echo "Freeze boundary set: $FREEZE_DIR"

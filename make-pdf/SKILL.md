@@ -489,6 +489,13 @@ left-aligned body, Helvetica throughout, curly quotes and em dashes, optional
 cover page and clickable TOC, diagonal DRAFT watermark when you need it.
 Copy-paste from the PDF produces clean words, never "S a i l i n g".
 
+## Quick Contract
+
+- Prerequisites: a readable markdown source plus a working make-pdf install; browse availability improves preview and render diagnostics.
+- Outputs: one finished PDF path, or an explicit render/preflight failure with the stage that failed.
+- Stop when: the markdown source is missing, required rendering dependencies cannot be started, or the user needs a document format other than PDF.
+- If unavailable: if live preview opening or browse-backed rendering diagnostics are unavailable, continue with PDF generation when possible and surface the output path or missing dependency explicitly.
+
 On Linux, install `fonts-liberation` for correct rendering — Helvetica and Arial
 aren't present by default, and Liberation Sans is the standard metric-compatible
 fallback. CI and Docker builds install it automatically via Dockerfile.ci.
@@ -537,7 +544,7 @@ One command, no flags. Gets a clean PDF with running header + page numbers
 + CONFIDENTIAL footer by default.
 
 ```bash
-$P generate letter.md                 # writes /tmp/letter.pdf
+$P generate letter.md                 # writes the default temp-root output path
 $P generate letter.md letter.pdf      # explicit output path
 ```
 
@@ -566,8 +573,10 @@ the flag and regenerate.
 $P preview essay.md
 ```
 
-Renders HTML with the same print CSS and opens it in your browser. Refresh
-as you edit the markdown. Skip the PDF round trip until you're ready.
+Renders HTML with the same print CSS and tries to open it in your browser.
+If automatic opening is unavailable, surface the preview path and use
+`~/.claude/skills/gstack/bin/gstack-open-url` when that helper exists. Refresh as you edit the
+markdown. Skip the PDF round trip until you're ready.
 
 ### Brand-free (no CONFIDENTIAL footer)
 
@@ -637,7 +646,7 @@ If the user has a `.md` file open and says "make it look nice", propose
 ## Output contract
 
 ```
-stdout: /tmp/letter.pdf          ← just the path, one line
+stdout: /tmp/letter.pdf          ← just the path, one line (or the equivalent temp-root path on this host)
 stderr: Rendering HTML...        ← progress spinner (unless --quiet)
         Generating PDF...
         Done in 1.5s. 43 words · 22KB · /tmp/letter.pdf

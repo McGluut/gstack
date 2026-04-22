@@ -1,24 +1,27 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { execFileSync, ExecFileSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
 
 let tmpDir: string;
 let slugDir: string;
 
 function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+  const execOpts: ExecFileSyncOptionsWithStringEncoding = {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };
   try {
-    const stdout = execSync(`${BIN}/gstack-timeline-log '${input.replace(/'/g, "'\\''")}'`, execOpts).trim();
+    const stdout = execFileSync(BASH, [path.join(BIN, 'gstack-timeline-log'), input], execOpts).trim();
     return { stdout, exitCode: 0 };
   } catch (e: any) {
     if (opts.expectFail) {
@@ -28,15 +31,15 @@ function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: s
   }
 }
 
-function runRead(args: string = ''): string {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+function runRead(args: string[] = []): string {
+  const execOpts: ExecFileSyncOptionsWithStringEncoding = {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };
   try {
-    return execSync(`${BIN}/gstack-timeline-read ${args}`, execOpts).trim();
+    return execFileSync(BASH, [path.join(BIN, 'gstack-timeline-read'), ...args], execOpts).trim();
   } catch {
     return '';
   }
@@ -131,18 +134,18 @@ describe('gstack-timeline-read', () => {
     runLog(JSON.stringify({ skill: 'review', event: 'completed', branch: 'feature-a', outcome: 'approved', ts: '2026-03-28T10:00:00Z' }));
     runLog(JSON.stringify({ skill: 'ship', event: 'completed', branch: 'feature-b', outcome: 'merged', ts: '2026-03-28T11:00:00Z' }));
 
-    const output = runRead('--branch feature-a');
+    const output = runRead(['--branch', 'feature-a']);
     expect(output).toContain('review');
     expect(output).not.toContain('feature-b');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('limits output with --limit', () => {
     for (let i = 0; i < 5; i++) {
       runLog(JSON.stringify({ skill: 'review', event: 'completed', branch: 'main', outcome: 'approved', ts: `2026-03-2${i}T10:00:00Z` }));
     }
 
-    const unlimited = runRead('--limit 20');
-    const limited = runRead('--limit 2');
+    const unlimited = runRead(['--limit', '20']);
+    const limited = runRead(['--limit', '2']);
 
     // Count event lines (lines starting with "- ")
     const unlimitedEvents = unlimited.split('\n').filter(l => l.startsWith('- ')).length;
@@ -150,5 +153,5 @@ describe('gstack-timeline-read', () => {
 
     expect(unlimitedEvents).toBe(5);
     expect(limitedEvents).toBe(2);
-  });
+  }, SLOW_CLI_TIMEOUT);
 });

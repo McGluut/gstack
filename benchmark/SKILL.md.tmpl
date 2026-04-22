@@ -44,6 +44,13 @@ When the user types `/benchmark`, run this skill.
 - `/benchmark --diff` — benchmark only pages affected by current branch
 - `/benchmark --trend` — show performance trends from historical data
 
+## Quick Contract
+
+- Prerequisites: a reachable URL, browse daemon availability, and a writable `.gstack/benchmark-reports/` directory.
+- Outputs: a benchmark report in the conversation plus report/baseline files under `.gstack/benchmark-reports/`.
+- Stop when: the URL cannot be reached, browse is unavailable, or `--diff` cannot identify the relevant page set safely.
+- If unavailable: if there is no baseline or no trend history, still report current measurements and state that regression/trend comparisons were skipped.
+
 ## Instructions
 
 ### Phase 1: Setup

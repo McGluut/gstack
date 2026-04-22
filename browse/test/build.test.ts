@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,7 +13,7 @@ describe('build: server-node.mjs', () => {
       // Skip rather than fail so plain `bun test` without a prior build passes.
       return;
     }
-    expect(() => execSync(`node --check ${SERVER_NODE}`, { stdio: 'pipe' })).not.toThrow();
+    expect(() => execFileSync('node', ['--check', SERVER_NODE], { stdio: 'pipe' })).not.toThrow();
   });
 
   test('does not inline @ngrok/ngrok (must be external)', () => {

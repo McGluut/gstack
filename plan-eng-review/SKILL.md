@@ -833,6 +833,13 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 Review this plan thoroughly before making any code changes. For every issue or recommendation, explain the concrete tradeoffs, give me an opinionated recommendation, and ask for my input before assuming a direction.
 
+## Quick Contract
+
+- Prerequisites: a plan to review and enough repo context to reason about architecture. A design doc is helpful but not mandatory. Writable artifact paths are only required if you want the report and test plan persisted.
+- Outputs: a review report, diagrams and failure tables, and when applicable the persisted test-plan artifact plus review-log entry.
+- Stop when: the review report and any promised artifacts are written, or the user leaves decisions unresolved and accepts that risk.
+- If unavailable: if no design doc exists, call it out and continue from the plan only. If artifact paths cannot be written, return the report inline and say persistence failed.
+
 ## Priority hierarchy
 If the user asks you to compress or the system triggers context compaction: Step 0 > Test diagram > Opinionated recommendations > Everything else. Never skip Step 0 or the test diagram. Do not preemptively warn about context limits -- the system handles compaction automatically.
 

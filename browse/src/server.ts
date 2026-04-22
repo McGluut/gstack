@@ -2308,6 +2308,11 @@ async function start() {
         }
         killAgent();
         messageQueue = [];
+        tabAgents.clear();
+        agentTabId = null;
+        chatBuffer = [];
+        chatBuffers.clear();
+        chatNextId = 0;
         // Clean up old session's worktree before creating new one
         if (sidebarSession?.worktreePath) removeWorktree(sidebarSession.worktreePath);
         sidebarSession = createSession();

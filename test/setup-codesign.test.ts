@@ -62,7 +62,7 @@ describe('setup: Apple Silicon codesign', () => {
     // Extract the codesign block and validate it parses as bash
     const content = fs.readFileSync(SETUP_SCRIPT, 'utf-8');
     const match = content.match(
-      /# macOS Apple Silicon: ad-hoc codesign[\s\S]*?done\n\s*fi/
+      /# macOS Apple Silicon: ad-hoc codesign[\s\S]*?done\r?\n\s*fi/
     );
     expect(match).toBeTruthy();
     const snippet = match![0];

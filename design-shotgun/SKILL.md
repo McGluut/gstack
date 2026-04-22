@@ -812,6 +812,13 @@ You are a design brainstorming partner. Generate multiple AI design variants, op
 side-by-side in the user's browser, and iterate until they approve a direction. This is
 visual brainstorming, not a review process.
 
+## Quick Contract
+
+- Prerequisites: a usable design brief, the design binary, and a writable project design-artifact directory.
+- Outputs: multiple design variants, one approved direction, and persisted taste/approval artifacts when the project store is available.
+- Stop when: the design binary is unavailable, context stays too thin after two rounds, or the user wants to reroute instead of choosing or revising a direction.
+- If unavailable: if prior taste memory, office-hours artifacts, or browser comparison support are unavailable, continue with fresh variant generation and state which history or board surface was skipped.
+
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
 ```bash
@@ -830,7 +837,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 ```
 
@@ -838,8 +845,9 @@ If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If `BROWSE_NOT_AVAILABLE`: surface the board URL or file path explicitly. If
+`~/.claude/skills/gstack/bin/gstack-open-url` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If `DESIGN_READY`: the design binary is available for visual mockup generation.
 Commands:
@@ -945,9 +953,11 @@ else a few taps away with an obvious path to get there.
 Check for prior design exploration sessions for this project:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 setopt +o nomatch 2>/dev/null || true
-_PREV=$(find ~/.gstack/projects/$SLUG/designs/ -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -5)
+_PREV=$(find "$PROJECT_STORE/designs/" -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -5)
 [ -n "$_PREV" ] && echo "PREVIOUS_SESSIONS_FOUND" || echo "NO_PREVIOUS_SESSIONS"
 echo "$_PREV"
 ```
@@ -999,7 +1009,9 @@ ls src/ app/ pages/ components/ 2>/dev/null | head -30
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-ls ~/.gstack/projects/$SLUG/*office-hours* 2>/dev/null | head -5
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+ls "$PROJECT_STORE"/*office-hours* 2>/dev/null | head -5
 ```
 
 If DESIGN.md exists, tell the user: "I'll follow your design system in DESIGN.md by
@@ -1031,7 +1043,7 @@ Two rounds max of context gathering, then proceed with what you have and note as
 Read both the persistent taste profile (cross-session) AND the per-session approved
 designs to bias generation toward the user's demonstrated taste.
 
-**Persistent taste profile (v1 schema at `~/.gstack/projects/$SLUG/taste-profile.json`):**
+**Persistent taste profile (v1 schema at the project store: `$HOME/.gstack/projects/$SLUG/taste-profile.json` when `HOME` is available, otherwise `.gstack/projects/$SLUG/taste-profile.json`):**
 
 Read the persistent taste profile if it exists:
 
@@ -1077,7 +1089,9 @@ will migrate it to schema v1 on the next write.
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_TASTE=$(find ~/.gstack/projects/$SLUG/designs/ -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -10)
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+_TASTE=$(find "$PROJECT_STORE/designs/" -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -10)
 ```
 
 If prior sessions exist, read each `approved.json` and extract patterns from the
@@ -1097,8 +1111,10 @@ The CLI handles schema migration from approved.json, decay, and conflict flaggin
 Set up the output directory:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-_DESIGN_DIR="$HOME/.gstack/projects/$SLUG/designs/<screen-name>-$(date +%Y%m%d)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+_DESIGN_DIR="$PROJECT_STORE/designs/<screen-name>-$(date +%Y%m%d)"
 mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
@@ -1194,9 +1210,9 @@ For the evolve path, replace step 1 with:
 {$D path} evolve --screenshot {_DESIGN_DIR}/current.png --brief "{brief}" --output /tmp/variant-{letter}.png
 ```
 
-**Why /tmp/ then cp?** In observed sessions, `$D generate --output ~/.gstack/...`
+**Why /tmp/ then cp?** In observed sessions, `$D generate --output <project-store path>`
 failed with "The operation was aborted" while `--output /tmp/...` succeeded. This is
-a sandbox restriction. Always generate to `/tmp/` first, then `cp`.
+a sandbox restriction. Always generate to `/tmp/` first, then `cp` into the project design store.
 
 ### Step 3d: Results
 
@@ -1232,8 +1248,8 @@ $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DES
 ```
 
 This command generates the board HTML, starts an HTTP server on a random port,
-and opens it in the user's default browser. **Run it in the background** with `&`
-because the server needs to stay running while the user interacts with the board.
+and usually opens it in the user's default browser. **Run it in the background** with
+`&` because the server needs to stay running while the user interacts with the board.
 
 Parse the port from stderr output: `SERVE_STARTED: port=XXXXX`. You need this
 for the board URL and for reloading during regeneration cycles.
@@ -1241,9 +1257,9 @@ for the board URL and for reloading during regeneration cycles.
 **PRIMARY WAIT: AskUserQuestion with board URL**
 
 After the board is serving, use AskUserQuestion to wait for the user. Include the
-board URL so they can click it if they lost the browser tab:
+board URL so they can click it if automatic opening failed or they lost the browser tab:
 
-"I've opened a comparison board with the design variants:
+"I've started a comparison board with the design variants:
 http://127.0.0.1:<PORT>/ — Rate them, leave comments, remix
 elements you like, and click Submit when you're done. Let me know when you've
 submitted your feedback (or paste your preferences here). If you clicked
@@ -1359,7 +1375,7 @@ If standalone, offer next steps via AskUserQuestion:
 ## Important Rules
 
 1. **Never save to `.context/`, `docs/designs/`, or `/tmp/`.** All design artifacts go
-   to `~/.gstack/projects/$SLUG/designs/`. This is enforced. See DESIGN_SETUP above.
+   to the project design store: `$HOME/.gstack/projects/$SLUG/designs/` when `HOME` is available, otherwise `.gstack/projects/$SLUG/designs/`. This is enforced. See DESIGN_SETUP above.
 2. **Show variants inline before opening the board.** The user should see designs
    immediately in their terminal. The browser board is for detailed feedback.
 3. **Confirm feedback before saving.** Always summarize what you understood and verify.

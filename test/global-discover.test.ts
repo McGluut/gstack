@@ -7,6 +7,7 @@ import { spawnSync } from "child_process";
 // Import normalizeRemoteUrl for unit testing
 // We test the script end-to-end via CLI and normalizeRemoteUrl via import
 const scriptPath = join(import.meta.dir, "..", "bin", "gstack-global-discover.ts");
+const SLOW_DISCOVERY_TIMEOUT = process.platform === "win32" ? 15000 : 5000;
 
 describe("gstack-global-discover", () => {
   describe("normalizeRemoteUrl", () => {
@@ -311,7 +312,7 @@ describe("gstack-global-discover", () => {
         expect(repo.sessions).toHaveProperty("codex");
         expect(repo.sessions).toHaveProperty("gemini");
       }
-    });
+    }, SLOW_DISCOVERY_TIMEOUT);
 
     test("tools summary matches repo data", () => {
       const result = spawnSync(

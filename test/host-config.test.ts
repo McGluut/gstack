@@ -292,6 +292,16 @@ describe('HOST_PATHS derivation from configs', () => {
 
 describe('host-config-export.ts CLI', () => {
   const EXPORT_SCRIPT = path.join(ROOT, 'scripts', 'host-config-export.ts');
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+
+  function isCommandAvailable(cmd: string): boolean {
+    const result = Bun.spawnSync([whichCmd, cmd], {
+      cwd: ROOT,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    return result.exitCode === 0;
+  }
 
   function run(...args: string[]): { stdout: string; stderr: string; exitCode: number } {
     const result = Bun.spawnSync(['bun', 'run', EXPORT_SCRIPT, ...args], {
@@ -374,11 +384,19 @@ describe('host-config-export.ts CLI', () => {
     expect(exitCode).toBe(1);
   });
 
-  test('detect finds claude (since we are running in claude)', () => {
+  test('detect reports hosts whose CLI is on PATH', () => {
     const { stdout, exitCode } = run('detect');
     expect(exitCode).toBe(0);
-    // claude binary should be on PATH in this environment
-    expect(stdout).toContain('claude');
+    const detected = stdout ? stdout.split('\n') : [];
+    for (const name of detected) {
+      expect(ALL_HOST_NAMES).toContain(name);
+    }
+
+    const expected = ALL_HOST_CONFIGS
+      .filter(config => [config.cliCommand, ...(config.cliAliases || [])].some(isCommandAvailable))
+      .map(config => config.name);
+
+    expect(detected).toEqual(expect.arrayContaining(expected));
   });
 
   test('unknown command exits 1', () => {
@@ -395,19 +413,19 @@ describe('golden-file regression', () => {
   test('Claude ship skill matches golden baseline', () => {
     const golden = fs.readFileSync(path.join(GOLDEN_DIR, 'claude-ship-SKILL.md'), 'utf-8');
     const current = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-    expect(current).toBe(golden);
+    expect(current.replace(/\r\n/g, '\n')).toBe(golden.replace(/\r\n/g, '\n'));
   });
 
   test('Codex ship skill matches golden baseline', () => {
     const golden = fs.readFileSync(path.join(GOLDEN_DIR, 'codex-ship-SKILL.md'), 'utf-8');
     const current = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'gstack-ship', 'SKILL.md'), 'utf-8');
-    expect(current).toBe(golden);
+    expect(current.replace(/\r\n/g, '\n')).toBe(golden.replace(/\r\n/g, '\n'));
   });
 
   test('Factory ship skill matches golden baseline', () => {
     const golden = fs.readFileSync(path.join(GOLDEN_DIR, 'factory-ship-SKILL.md'), 'utf-8');
     const current = fs.readFileSync(path.join(ROOT, '.factory', 'skills', 'gstack-ship', 'SKILL.md'), 'utf-8');
-    expect(current).toBe(golden);
+    expect(current.replace(/\r\n/g, '\n')).toBe(golden.replace(/\r\n/g, '\n'));
   });
 });
 

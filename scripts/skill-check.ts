@@ -10,6 +10,7 @@
 
 import { validateSkill } from '../test/helpers/skill-parser';
 import { discoverTemplates, discoverSkillFiles } from './discover-skills';
+import { auditSkillContract } from './skill-contract-audit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -132,6 +133,29 @@ for (const hostConfig of ALL_HOST_CONFIGS) {
       console.log(`      ${line}`);
     }
     console.log(`      Run: bun run gen:skill-docs${hostFlag}`);
+  }
+}
+
+// ─── Skill Contract Audit ────────────────────────────────────────────────────
+
+console.log('\n  Skill Contract:');
+const audit = auditSkillContract(ROOT);
+if (audit.errors.length === 0) {
+  console.log('  ✅ No hard contract errors');
+} else {
+  hasErrors = true;
+  for (const issue of audit.errors) {
+    const location = issue.file ? ` (${issue.file})` : '';
+    console.log(`  ❌ ${issue.code}${location} — ${issue.message}`);
+  }
+}
+
+if (audit.warnings.length === 0) {
+  console.log('  ✅ No contract warnings');
+} else {
+  for (const issue of audit.warnings) {
+    const location = issue.file ? ` (${issue.file})` : '';
+    console.log(`  ⚠️  ${issue.code}${location} — ${issue.message}`);
   }
 }
 

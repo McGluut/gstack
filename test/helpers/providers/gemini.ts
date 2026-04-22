@@ -3,7 +3,7 @@ import { estimateCostUsd } from '../pricing';
 import { execFileSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { resolveHomeDir } from './home';
 
 /**
  * Gemini adapter — wraps the `gemini` CLI.
@@ -22,7 +22,7 @@ export class GeminiAdapter implements ProviderAdapter {
     if (res.status !== 0) {
       return { ok: false, reason: 'gemini CLI not found on PATH. Install per https://github.com/google-gemini/gemini-cli' };
     }
-    const cfgDir = path.join(os.homedir(), '.config', 'gemini');
+    const cfgDir = path.join(resolveHomeDir(), '.config', 'gemini');
     const hasCfg = fs.existsSync(cfgDir);
     const hasKey = !!process.env.GOOGLE_API_KEY;
     if (!hasCfg && !hasKey) {

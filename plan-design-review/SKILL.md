@@ -871,6 +871,13 @@ to find missing design decisions and ADD THEM TO THE PLAN before implementation.
 
 The output of this skill is a better plan, not a document about the plan.
 
+## Quick Contract
+
+- Prerequisites: a plan with meaningful UI or UX scope, plus design tooling or browser support if mockups and comparison boards are needed.
+- Outputs: plan edits, design decisions, any generated mockup or board paths, and the final review-log entry.
+- Stop when: all seven passes are resolved or explicitly left unresolved and the next-step gate has been presented.
+- If unavailable: if design tooling or a browser board is unavailable, continue with a text-only review and say the visual loop was skipped. If there is no real UI scope, say so and stop instead of faking a design pass.
+
 ## Design Philosophy
 
 You are not here to rubber-stamp this plan's UI. You are here to ensure that when
@@ -1073,7 +1080,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 ```
 
@@ -1081,8 +1088,9 @@ If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If `BROWSE_NOT_AVAILABLE`: surface the board URL or file path explicitly. If
+`~/.claude/skills/gstack/bin/gstack-open-url` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If `DESIGN_READY`: the design binary is available for visual mockup generation.
 Commands:
@@ -1143,7 +1151,7 @@ planning phase. Generating mockups during planning is the whole point.
 Allowed commands under this exception:
 - `mkdir -p ~/.gstack/projects/$SLUG/designs/...`
 - `$D generate`, `$D variants`, `$D compare`, `$D iterate`, `$D evolve`, `$D check`
-- `open` (fallback for viewing boards when `$B` is not available)
+- `~/.claude/skills/gstack/bin/gstack-open-url <board-url>` (fallback for viewing boards when `$B` is not available)
 
 First, set up the output directory. Name it after the screen/feature being designed and today's date:
 
@@ -1189,8 +1197,8 @@ $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DES
 ```
 
 This command generates the board HTML, starts an HTTP server on a random port,
-and opens it in the user's default browser. **Run it in the background** with `&`
-because the server needs to stay running while the user interacts with the board.
+and usually opens it in the user's default browser. **Run it in the background** with
+`&` because the server needs to stay running while the user interacts with the board.
 
 Parse the port from stderr output: `SERVE_STARTED: port=XXXXX`. You need this
 for the board URL and for reloading during regeneration cycles.
@@ -1198,9 +1206,9 @@ for the board URL and for reloading during regeneration cycles.
 **PRIMARY WAIT: AskUserQuestion with board URL**
 
 After the board is serving, use AskUserQuestion to wait for the user. Include the
-board URL so they can click it if they lost the browser tab:
+board URL so they can click it if automatic opening failed or they lost the browser tab:
 
-"I've opened a comparison board with the design variants:
+"I've started a comparison board with the design variants:
 http://127.0.0.1:<PORT>/ — Rate them, leave comments, remix
 elements you like, and click Submit when you're done. Let me know when you've
 submitted your feedback (or paste your preferences here). If you clicked
@@ -1621,7 +1629,7 @@ Follow the AskUserQuestion format from the Preamble above. Additional rules for 
 * **Map to Design Principles above.** One sentence connecting your recommendation to a specific principle.
 * Label with issue NUMBER + option LETTER (e.g., "3A", "3B").
 * **Escape hatch:** If a section has no issues, say so and move on. If a gap has an obvious fix, state what you'll add and move on — don't waste a question on it. Only use AskUserQuestion when there is a genuine design choice with meaningful tradeoffs.
-* **NEVER use AskUserQuestion to ask which variant the user prefers.** Always create a comparison board first (`$D compare --serve`) and open it in the browser. The board has rating controls, comments, remix/regenerate buttons, and structured feedback output. Use AskUserQuestion ONLY to notify the user the board is open and wait for them to finish — not to present variants inline and ask "which do you prefer?" That is a degraded experience.
+* **NEVER use AskUserQuestion to ask which variant the user prefers.** Always create a comparison board first (`$D compare --serve`) and surface or open the board URL with the cross-platform opener helper when needed. The board has rating controls, comments, remix/regenerate buttons, and structured feedback output. Use AskUserQuestion ONLY to notify the user the board is open and wait for them to finish — not to present variants inline and ask "which do you prefer?" That is a degraded experience.
 
 ## Required Outputs
 

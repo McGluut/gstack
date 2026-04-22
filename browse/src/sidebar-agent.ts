@@ -13,6 +13,7 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { safeUnlink } from './error-handling';
+import { resolveClaudeCommand } from './claude-bin';
 import {
   checkCanaryInStructure, logAttempt, hashPayload, extractDomain,
   combineVerdict, writeSessionState, readSessionState, THRESHOLDS,
@@ -537,6 +538,7 @@ async function preSpawnSecurityCheck(entry: QueueEntry): Promise<boolean> {
 async function askClaude(queueEntry: QueueEntry): Promise<void> {
   const { prompt, args, stateFile, cwd, tabId, canary, pageUrl } = queueEntry;
   const tid = tabId ?? 0;
+  const claudeCommand = resolveClaudeCommand();
 
   processingTabs.add(tid);
   await sendEvent({ type: 'agent_start' }, tid);
@@ -544,6 +546,12 @@ async function askClaude(queueEntry: QueueEntry): Promise<void> {
   // Pre-spawn ML scan: if the user message trips the ensemble, refuse to
   // spawn claude. Fail-open on classifier errors.
   if (await preSpawnSecurityCheck(queueEntry)) {
+    processingTabs.delete(tid);
+    return;
+  }
+
+  if (!claudeCommand) {
+    await sendEvent({ type: 'agent_error', error: 'Claude CLI not found on PATH' }, tid);
     processingTabs.delete(tid);
     return;
   }
@@ -571,7 +579,7 @@ async function askClaude(queueEntry: QueueEntry): Promise<void> {
     const cancelFile = cancelFileForTab(tid);
     safeUnlink(cancelFile);
 
-    const proc = spawn('claude', claudeArgs, {
+    const proc = spawn(claudeCommand.command, [...claudeCommand.argsPrefix, ...claudeArgs], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: effectiveCwd,
       env: {
@@ -911,6 +919,7 @@ async function main() {
   console.log(`[sidebar-agent] Started. Watching ${QUEUE} from line ${lastLine}`);
   console.log(`[sidebar-agent] Server: ${SERVER_URL}`);
   console.log(`[sidebar-agent] Browse binary: ${B}`);
+  console.log(`[sidebar-agent] Claude binary: ${resolveClaudeCommand()?.command ?? 'not found'}`);
 
   // If GSTACK_SECURITY_ENSEMBLE=deberta is set, also warm the DeBERTa-v3
   // ensemble classifier. Fire-and-forget alongside TestSavantAI — they

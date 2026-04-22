@@ -1,31 +1,32 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 10000;
 
 let tmpDir: string;
 let slugDir: string;
 
 function run(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+  const result = spawnSync(BASH, [path.join(BIN, 'gstack-review-log'), input], {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
-    timeout: 10000,
-  };
-  try {
-    const stdout = execSync(`${BIN}/gstack-review-log '${input.replace(/'/g, "'\\''")}'`, execOpts).trim();
-    return { stdout, exitCode: 0 };
-  } catch (e: any) {
-    if (opts.expectFail) {
-      return { stdout: e.stderr?.toString() || '', exitCode: e.status || 1 };
-    }
-    throw e;
+    timeout: SLOW_CLI_TIMEOUT,
+  });
+  const stdout = (result.stdout ?? '').trim();
+  const stderr = (result.stderr ?? '').trim();
+  const exitCode = result.status ?? 1;
+  if (exitCode !== 0 && !opts.expectFail) {
+    throw new Error(stderr || stdout || `gstack-review-log failed (${exitCode})`);
   }
+  return { stdout: opts.expectFail ? stderr : stdout, exitCode };
 }
 
 beforeEach(() => {

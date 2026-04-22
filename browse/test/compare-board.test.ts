@@ -14,6 +14,14 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { BrowserManager } from '../src/browser-manager';
 import { handleReadCommand as _handleReadCommand } from '../src/read-commands';
 import { handleWriteCommand as _handleWriteCommand } from '../src/write-commands';
+const compareBoardEnabled = process.platform !== 'win32';
+const describeCompareBoard = compareBoardEnabled ? describe : describe.skip;
+
+if (!compareBoardEnabled) {
+  test('comparison board browser integration is disabled on Windows', () => {
+    expect(compareBoardEnabled).toBe(false);
+  });
+}
 
 const handleReadCommand = (cmd: string, args: string[], b: BrowserManager) =>
   _handleReadCommand(cmd, args, b.getActiveSession());
@@ -39,6 +47,7 @@ function createTestPng(filePath: string): void {
 }
 
 beforeAll(async () => {
+  if (!compareBoardEnabled) return;
   // Create test PNG files
   tmpDir = '/tmp/compare-board-test-' + Date.now();
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -70,6 +79,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  if (!compareBoardEnabled) return;
   try { server.stop(); } catch {}
   fs.rmSync(tmpDir, { recursive: true, force: true });
   setTimeout(() => process.exit(0), 500);
@@ -77,7 +87,7 @@ afterAll(() => {
 
 // ─── DOM Structure ──────────────────────────────────────────────
 
-describe('Comparison board DOM structure', () => {
+describeCompareBoard('Comparison board DOM structure', () => {
   test('has hidden status element', async () => {
     const status = await handleReadCommand('js', [
       'document.getElementById("status").textContent'
@@ -130,7 +140,7 @@ describe('Comparison board DOM structure', () => {
 
 // ─── Submit Flow ────────────────────────────────────────────────
 
-describe('Submit feedback flow', () => {
+describeCompareBoard('Submit feedback flow', () => {
   test('submit without interaction returns empty preferred', async () => {
     // Reset page state
     await handleWriteCommand('goto', [boardUrl], bm);
@@ -227,7 +237,7 @@ describe('Submit feedback flow', () => {
 
 // ─── Regenerate Flow ────────────────────────────────────────────
 
-describe('Regenerate flow', () => {
+describeCompareBoard('Regenerate flow', () => {
   test('regenerate button sets status to "regenerate"', async () => {
     // Fresh page
     await handleWriteCommand('goto', [boardUrl], bm);
@@ -301,7 +311,7 @@ describe('Regenerate flow', () => {
 
 // ─── Agent Polling Pattern ──────────────────────────────────────
 
-describe('Agent polling pattern (simulates what $B eval does)', () => {
+describeCompareBoard('Agent polling pattern (simulates what $B eval does)', () => {
   test('status is empty before user action', async () => {
     // Fresh page — simulates agent's first poll
     await handleWriteCommand('goto', [boardUrl], bm);

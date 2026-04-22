@@ -827,6 +827,13 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 You are a QA engineer. Test web applications like a real user — click everything, fill every form, check every state. Produce a structured report with evidence. **NEVER fix anything.**
 
+## Quick Contract
+
+- Prerequisites: a target URL or diff-aware target, a working browse binary, and a writable report directory.
+- Outputs: a QA report, screenshots, health-score evidence, and a project-scoped test outcome artifact when the home-store path is available.
+- Stop when: the report artifacts are written, or a real availability gate blocks testing (missing browse capability, auth, or reachable app).
+- If unavailable: if browse, auth, app access, or project-scoped persistence is missing, report the gap plainly and stop or fall back to the local report only.
+
 ## Setup
 
 **Parse the user's request for these parameters:**
@@ -1227,7 +1234,7 @@ Write the report to both local and project-scoped locations:
 
 **Local:** `.gstack/qa-reports/qa-report-{domain}-{YYYY-MM-DD}.md`
 
-**Project-scoped:** Write test outcome artifact for cross-session context:
+**Project-scoped:** Write test outcome artifact for cross-session context when the home-store path is available. If that write fails, keep the local report and note that the project-scoped artifact was skipped:
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 ```

@@ -42,7 +42,7 @@ describe('security decision file handshake', () => {
     // verify the API shape rather than the exact path. The file lives where
     // decisionFileForTab says it does.
     const file = decisionFileForTab(42);
-    expect(file.endsWith('/tab-42.json')).toBe(true);
+    expect(file.replace(/\\/g, '/').endsWith('/tab-42.json')).toBe(true);
 
     // Ensure the directory exists (writeDecision creates it).
     writeDecision({ tabId: 42, decision: 'allow', ts: new Date().toISOString(), reason: 'user' });
@@ -81,7 +81,12 @@ describe('security decision file handshake', () => {
 
   test('file perms are 0600 on the decision file', () => {
     writeDecision({ tabId: 3, decision: 'allow', ts: new Date().toISOString() });
-    const stat = fs.statSync(decisionFileForTab(3));
+    const file = decisionFileForTab(3);
+    expect(fs.existsSync(file)).toBe(true);
+    if (process.platform === 'win32') {
+      return;
+    }
+    const stat = fs.statSync(file);
     // mode & 0o777 = lower 9 bits of permission
     const perms = stat.mode & 0o777;
     // On some filesystems the sticky/group bits may vary; we assert the

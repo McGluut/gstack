@@ -121,9 +121,11 @@ Mutual exclusion: `--clip` + selector (flag or positional), `--viewport` + `--cl
 `viewport --scale <n>` sets Playwright's `deviceScaleFactor` (context-level option, 1-3 gstack policy cap). A 2x scale doubles the pixel density of screenshots:
 
 ```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
 $B viewport 480x600 --scale 2
-$B load-html /tmp/card.html
-$B screenshot /tmp/card.png --selector .card
+$B load-html "$TMP_ROOT/card.html"
+$B screenshot "$TMP_ROOT/card.png" --selector .card
 # .card element at 400x200 CSS pixels → card.png is 800x400 pixels
 ```
 

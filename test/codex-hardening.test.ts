@@ -6,6 +6,19 @@ import * as os from 'os';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const PROBE = path.join(ROOT, 'bin/gstack-codex-probe');
+const BASH = resolveBash();
+
+function resolveBash(): string {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(whichCmd, ['bash'], {
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 5000,
+  });
+  const bash = result.stdout?.split(/\r?\n/).find(Boolean)?.trim();
+  if (!bash) throw new Error('bash not found on PATH');
+  return bash;
+}
 
 // Run a bash snippet that sources the probe and evaluates one of its functions.
 // Controlled env + optional tempdir for HOME isolation.
@@ -31,7 +44,7 @@ function runProbe(opts: {
     }
   }
   const script = `set +e\nsource "${PROBE}"\n${opts.snippet}\n`;
-  const result = spawnSync('bash', ['-c', script], {
+  const result = spawnSync(BASH, ['-c', script], {
     env,
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 5000,
@@ -256,17 +269,14 @@ describe('gstack-codex-probe: version check (anchored regex per Tension I)', () 
 
 describe('gstack-codex-probe: timeout wrapper + namespace hygiene', () => {
   test('bin/gstack-codex-probe is syntactically valid bash (bash -n)', () => {
-    const result = spawnSync('bash', ['-n', PROBE], { timeout: 5000 });
+    const result = spawnSync(BASH, ['-n', PROBE], { timeout: 5000 });
     expect(result.status).toBe(0);
   });
 
-  test('timeout wrapper executes command directly when neither binary present', () => {
-    // Clear PATH to simulate no timeout/gtimeout. Use only /bin for `echo`.
+  test('timeout wrapper preserves command stdout', () => {
     const r = runProbe({
       snippet: `_gstack_codex_timeout_wrapper 5 echo hello_world`,
-      env: { PATH: '/bin:/usr/bin' }, // these usually lack gtimeout; timeout may exist on linux
     });
-    // Regardless of whether timeout is on this PATH, echo hello_world should succeed.
     expect(r.stdout.trim()).toBe('hello_world');
   });
 
@@ -279,7 +289,7 @@ describe('gstack-codex-probe: timeout wrapper + namespace hygiene', () => {
       fs.chmodSync(stub, 0o755);
       const r = runProbe({
         snippet: `_gstack_codex_timeout_wrapper 5 echo nope`,
-        env: { PATH: `${dir}:/bin:/usr/bin` },
+        env: { PATH: `${dir}${path.delimiter}${process.env.PATH ?? ''}` },
       });
       expect(r.stdout.trim()).toBe('gtimeout_chosen_5');
     } finally {
@@ -337,6 +347,24 @@ describe('gstack-codex-probe: telemetry event emission', () => {
       expect(fs.existsSync(jsonl)).toBe(false);
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('_gstack_codex_log_event respects GSTACK_STATE_DIR override', () => {
+    const home = tempHome();
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-codex-state-'));
+    try {
+      const r = runProbe({
+        snippet: `_gstack_codex_log_event "codex_test_event" "7"; cat "$GSTACK_STATE_DIR/analytics/skill-usage.jsonl"`,
+        env: { _TEL: 'community', GSTACK_STATE_DIR: stateDir },
+        home,
+      });
+      expect(r.stdout).toContain('"event":"codex_test_event"');
+      expect(fs.existsSync(path.join(stateDir, 'analytics', 'skill-usage.jsonl'))).toBe(true);
+      expect(fs.existsSync(path.join(home, '.gstack', 'analytics', 'skill-usage.jsonl'))).toBe(false);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+      fs.rmSync(stateDir, { recursive: true, force: true });
     }
   });
 

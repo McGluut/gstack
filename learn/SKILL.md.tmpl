@@ -32,6 +32,25 @@ knowledge, and prune stale or contradictory entries.
 
 **HARD GATE:** Do NOT implement code changes. This skill manages learnings only.
 
+## Quick Contract
+
+- Prerequisites: a project slug and the learnings store for that project. Repo file access is also needed for prune checks.
+- Outputs: recent, search, stats, or export views, or updated learnings after a prune or manual-add flow.
+- Stop when: the requested learnings operation is complete, or a prune or update choice is waiting on the user.
+- If unavailable: if no learnings exist yet, say so plainly. If file checks or project resolution are incomplete, limit the action to the data you do have and say what was skipped.
+
+---
+
+## Runtime Preflight
+
+Before any Bun-backed stats or parsing flow, verify Bun is available:
+
+```bash
+command -v bun >/dev/null 2>&1 && echo "BUN_READY" || echo "BUN_MISSING"
+```
+
+If `BUN_MISSING`, stop and say: "This `/learn` stats or export path needs Bun for JSONL parsing. Recent/search can still use the gstack binaries, but Bun-backed summaries must stop here."
+
 ---
 
 ## Detect command
@@ -147,8 +166,8 @@ if [ -f "$LEARN_FILE" ]; then
   TOTAL=$(wc -l < "$LEARN_FILE" | tr -d ' ')
   echo "TOTAL: $TOTAL entries"
   # Count by type (after dedup)
-  cat "$LEARN_FILE" | bun -e "
-    const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
+  LEARN_FILE="$LEARN_FILE" bun -e "
+    const lines = require('fs').readFileSync(process.env.LEARN_FILE, 'utf-8').trim().split('\n').filter(Boolean);
     const seen = new Map();
     for (const line of lines) {
       try {

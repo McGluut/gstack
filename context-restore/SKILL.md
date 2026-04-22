@@ -825,6 +825,13 @@ on one branch can be resumed from another.
 **Do NOT filter the candidate set by current branch.** The `list` flow does
 that; `/context-restore` does not.
 
+## Quick Contract
+
+- Prerequisites: a repo or project slug that `eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG` can resolve and read access to the saved-context directory in the gstack state root.
+- Outputs: the newest matching saved context plus a clear resume summary and next-step options.
+- Stop when: the right saved context is loaded, or no saved contexts exist for this project.
+- If unavailable: if the slug or state root cannot be resolved, stop and name that prerequisite instead of implying a restore happened.
+
 ---
 
 ## Detect command
@@ -844,7 +851,9 @@ Parse the user's input:
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
-CHECKPOINT_DIR="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/checkpoints"
+GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
+[ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
+CHECKPOINT_DIR="$GSTACK_STATE_ROOT/projects/$SLUG/checkpoints"
 if [ ! -d "$CHECKPOINT_DIR" ]; then
   echo "NO_CHECKPOINTS"
 else

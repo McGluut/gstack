@@ -16,6 +16,7 @@ import { spawnSync } from 'child_process';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN_CONFIG = path.join(ROOT, 'bin', 'gstack-config');
+const BASH = resolveBash();
 
 let tmpHome: string;
 
@@ -27,8 +28,20 @@ afterEach(() => {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
+function resolveBash(): string {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(whichCmd, ['bash'], {
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 5000,
+  });
+  const bash = result.stdout?.split(/\r?\n/).find(Boolean)?.trim();
+  if (!bash) throw new Error('bash not found on PATH');
+  return bash;
+}
+
 function run(...args: string[]): { stdout: string; stderr: string; status: number } {
-  const res = spawnSync(BIN_CONFIG, args, {
+  const res = spawnSync(BASH, [BIN_CONFIG, ...args], {
     env: { ...process.env, GSTACK_STATE_DIR: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,

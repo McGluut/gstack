@@ -15,7 +15,7 @@
 
 import { ALL_HOST_CONFIGS, getHostConfig, ALL_HOST_NAMES } from '../hosts/index';
 import { validateAllConfigs } from './host-config';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 
 const CLI_REGEX = /^[a-z][a-z0-9_-]*$/;
 const PATH_REGEX = /^[a-zA-Z0-9_.\/${}~-]+$/;
@@ -28,6 +28,12 @@ function validateValue(val: string, context: string): void {
   if (!PATH_REGEX.test(val) && !CLI_REGEX.test(val)) {
     throw new Error(`Unsafe value for ${context}: ${val}`);
   }
+}
+
+function isCommandAvailable(cmd: string): boolean {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(whichCmd, [cmd], { stdio: 'pipe' });
+  return result.status === 0;
 }
 
 const [command, ...args] = process.argv.slice(2);
@@ -70,7 +76,7 @@ switch (command) {
       const commands = [config.cliCommand, ...(config.cliAliases || [])];
       for (const cmd of commands) {
         try {
-          execSync(`command -v ${shellEscape(cmd)}`, { stdio: 'pipe' });
+          if (!isCommandAvailable(cmd)) continue;
           console.log(config.name);
           break;  // Found this host, move to next
         } catch {

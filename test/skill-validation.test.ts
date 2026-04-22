@@ -4,8 +4,52 @@ import { ALL_COMMANDS, COMMAND_DESCRIPTIONS, READ_COMMANDS, WRITE_COMMANDS, META
 import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
+const BASH = resolveBash();
+
+function runTrackedFiles(): string[] {
+  const result = Bun.spawnSync(['git', 'ls-files', '-z'], {
+    cwd: ROOT,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  expect(result.exitCode).toBe(0);
+  return result.stdout.toString().split('\0').filter(Boolean);
+}
+
+function runSlug() {
+  return Bun.spawnSync([BASH, path.join(ROOT, 'bin', 'gstack-slug')], {
+    cwd: ROOT,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+}
+
+function findSlugProcessSubstitutionMatches(): string[] {
+  const pattern = /source <\([^)]*gstack-slug/;
+  return runTrackedFiles().filter((file) => {
+    const base = path.basename(file);
+    if (!(file.endsWith('.tmpl') || base.startsWith('gstack-review-'))) return false;
+    return pattern.test(fs.readFileSync(path.join(ROOT, file), 'utf-8'));
+  });
+}
+
+function isMachOOrElf(filePath: string): boolean {
+  const content = fs.readFileSync(filePath);
+  if (content.length < 4) return false;
+  const magic = content.subarray(0, 4).toString('hex');
+  return new Set([
+    '7f454c46',
+    'feedface',
+    'cefaedfe',
+    'feedfacf',
+    'cffaedfe',
+    'cafebabe',
+    'bebafeca',
+  ]).has(magic);
+}
 
 describe('SKILL.md command validation', () => {
   test('all $B commands in SKILL.md are valid browse commands', () => {
@@ -919,12 +963,14 @@ describe('gstack-slug', () => {
 
   test('binary exists and is executable', () => {
     expect(fs.existsSync(SLUG_BIN)).toBe(true);
-    const stat = fs.statSync(SLUG_BIN);
-    expect(stat.mode & 0o111).toBeGreaterThan(0);
+    if (process.platform !== 'win32') {
+      const stat = fs.statSync(SLUG_BIN);
+      expect(stat.mode & 0o111).toBeGreaterThan(0);
+    }
   });
 
   test('outputs SLUG and BRANCH lines in a git repo', () => {
-    const result = Bun.spawnSync([SLUG_BIN], { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = runSlug();
     expect(result.exitCode).toBe(0);
     const output = result.stdout.toString();
     expect(output).toContain('SLUG=');
@@ -932,21 +978,21 @@ describe('gstack-slug', () => {
   });
 
   test('SLUG does not contain forward slashes', () => {
-    const result = Bun.spawnSync([SLUG_BIN], { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = runSlug();
     const slug = result.stdout.toString().match(/SLUG=(.*)/)?.[1] ?? '';
     expect(slug).not.toContain('/');
     expect(slug.length).toBeGreaterThan(0);
   });
 
   test('BRANCH does not contain forward slashes', () => {
-    const result = Bun.spawnSync([SLUG_BIN], { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = runSlug();
     const branch = result.stdout.toString().match(/BRANCH=(.*)/)?.[1] ?? '';
     expect(branch).not.toContain('/');
     expect(branch.length).toBeGreaterThan(0);
   });
 
   test('output is eval-compatible (KEY=VALUE format)', () => {
-    const result = Bun.spawnSync([SLUG_BIN], { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = runSlug();
     const lines = result.stdout.toString().trim().split('\n');
     expect(lines.length).toBe(2);
     expect(lines[0]).toMatch(/^SLUG=.+/);
@@ -954,7 +1000,7 @@ describe('gstack-slug', () => {
   });
 
   test('output values contain only safe characters (no shell metacharacters)', () => {
-    const result = Bun.spawnSync([SLUG_BIN], { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = runSlug();
     const slug = result.stdout.toString().match(/SLUG=(.*)/)?.[1] ?? '';
     const branch = result.stdout.toString().match(/BRANCH=(.*)/)?.[1] ?? '';
     // Only alphanumeric, dot, dash, underscore are allowed (#133)
@@ -963,7 +1009,7 @@ describe('gstack-slug', () => {
   });
   test('eval sets variables under bash with set -euo pipefail', () => {
     const result = Bun.spawnSync(
-      ['bash', '-c', 'set -euo pipefail; eval "$(./bin/gstack-slug 2>/dev/null)"; echo "SLUG=$SLUG"; echo "BRANCH=$BRANCH"'],
+      [BASH, '-c', 'set -euo pipefail; eval "$(./bin/gstack-slug 2>/dev/null)"; echo "SLUG=$SLUG"; echo "BRANCH=$BRANCH"'],
       { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' }
     );
     expect(result.exitCode).toBe(0);
@@ -973,12 +1019,7 @@ describe('gstack-slug', () => {
   });
 
   test('no templates or bin scripts use source process substitution for gstack-slug', () => {
-    const result = Bun.spawnSync(
-      ['grep', '-r', 'source <(.*gstack-slug', '--include=*.tmpl', '--include=gstack-review-*', '.'],
-      { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' }
-    );
-    // grep returns exit code 1 when no matches found — that's what we want
-    expect(result.stdout.toString().trim()).toBe('');
+    expect(findSlugProcessSubstitutionMatches()).toEqual([]);
   });
 });
 
@@ -1576,62 +1617,18 @@ describe('Test failure triage in ship skill', () => {
 });
 
 describe('no compiled binaries in git', () => {
-  // Tracked files enumerated once and reused by both assertions. git ls-files -z
-  // + split is ~ms; the previous xargs-per-file shell loops blew past 5s on CI.
-  const trackedFiles: string[] = require('child_process')
-    .execSync('git ls-files -z', { cwd: ROOT, encoding: 'utf-8' })
-    .split('\0')
-    .filter(Boolean);
-
+  // Cold first-pass git/file scans can exceed Bun's default 5s timeout on Windows.
   test('git tracks no Mach-O or ELF binaries', () => {
-    // Only mode 100755 (executable) files can be binaries we care about. Pre-filter
-    // via git ls-files -s to avoid running `file` on every text file.
-    const lsOut: string = require('child_process').execSync('git ls-files -s', {
-      cwd: ROOT,
-      encoding: 'utf-8',
-    });
-    const executableFiles = lsOut
-      .split('\n')
-      .filter(Boolean)
-      .map((line: string) => {
-        const parts = line.split(/\s+/);
-        return { mode: parts[0], file: line.split('\t')[1] };
-      })
-      .filter((e: { mode: string; file: string }) => e.mode === '100755')
-      .map((e: { mode: string; file: string }) => e.file);
-
-    if (executableFiles.length === 0) return;
-
-    // Batch-invoke `file --mime-type` across all executable files at once.
-    const result: string = require('child_process')
-      .execSync(`file --mime-type -- ${executableFiles.map((f: string) => `'${f.replace(/'/g, "'\\''")}'`).join(' ')}`, {
-        cwd: ROOT,
-        encoding: 'utf-8',
-      })
-      .trim();
-
-    const binaries = result
-      .split('\n')
-      .filter((l: string) =>
-        /application\/(x-mach-binary|x-executable|x-pie-executable|x-sharedlib)/.test(l)
-      )
-      .map((l: string) => l.split(':')[0].trim());
-
-    expect(binaries).toEqual([]);
-  });
+    const files = runTrackedFiles().filter((file) => isMachOOrElf(path.join(ROOT, file)));
+    expect(files).toEqual([]);
+  }, 15_000);
 
   test('git tracks no files larger than 2MB', () => {
-    // Pure fs.statSync — no shell spawn per file.
-    const MAX_BYTES = 2 * 1024 * 1024;
-    const oversized = trackedFiles.filter((f: string) => {
-      const full = path.join(ROOT, f);
-      try {
-        return fs.statSync(full).size > MAX_BYTES;
-      } catch {
-        return false;
-      }
-    });
-    expect(oversized).toEqual([]);
+    const files = runTrackedFiles()
+      .map((file) => ({ file, size: fs.statSync(path.join(ROOT, file)).size }))
+      .filter(({ size }) => size > 2 * 1024 * 1024)
+      .map(({ file, size }) => `${file}:${size}`);
+    expect(files).toEqual([]);
   });
 });
 
@@ -1662,3 +1659,4 @@ describe('sidebar agent (#584)', () => {
     expect(content).not.toContain("proc.stderr.on('data', () => {})");
   });
 });
+

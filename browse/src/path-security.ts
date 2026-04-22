@@ -84,8 +84,14 @@ export function validateReadPath(filePath: string): void {
     if (err.code === 'ENOENT') {
       try {
         const dir = fs.realpathSync(path.dirname(resolved));
+        if (!fs.statSync(dir).isDirectory()) {
+          throw new Error(`Cannot resolve real path: ${filePath} (ENOTDIR)`);
+        }
         realPath = path.join(dir, path.basename(resolved));
-      } catch {
+      } catch (innerErr: any) {
+        if (innerErr instanceof Error && innerErr.message.startsWith('Cannot resolve real path:')) {
+          throw innerErr;
+        }
         realPath = resolved;
       }
     } else {

@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync, symlinkSync, utimesSync } from 'fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync, symlinkSync, copyFileSync, chmodSync, utimesSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -41,7 +41,15 @@ beforeEach(() => {
   // Link real gstack-config so update_check config check works
   const binDir = join(gstackDir, 'bin');
   mkdirSync(binDir);
-  symlinkSync(join(import.meta.dir, '..', '..', 'bin', 'gstack-config'), join(binDir, 'gstack-config'));
+  const sourceConfig = join(import.meta.dir, '..', '..', 'bin', 'gstack-config');
+  const targetConfig = join(binDir, 'gstack-config');
+  try {
+    symlinkSync(sourceConfig, targetConfig);
+  } catch (error: any) {
+    if (error?.code !== 'EPERM') throw error;
+    copyFileSync(sourceConfig, targetConfig);
+    chmodSync(targetConfig, 0o755);
+  }
 });
 
 afterEach(() => {
@@ -476,6 +484,7 @@ describe('gstack-update-check', () => {
     expect(cache).toContain('UP_TO_DATE');
   });
 
+  // The forced path clears snooze, busts cache, and re-fetches state; give it headroom on cold Windows runs.
   test('--force clears snooze so user can upgrade after snoozing', () => {
     writeFileSync(join(gstackDir, 'VERSION'), '0.3.3\n');
     writeFileSync(join(gstackDir, 'REMOTE_VERSION'), '0.4.0\n');
@@ -492,7 +501,7 @@ describe('gstack-update-check', () => {
     expect(forced.stdout).toBe('UPGRADE_AVAILABLE 0.3.3 0.4.0');
     // Snooze file should be deleted
     expect(existsSync(join(stateDir, 'update-snoozed'))).toBe(false);
-  });
+  }, 10_000);
 
   // ─── Split TTL tests ─────────────────────────────────────────
 

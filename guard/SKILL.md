@@ -41,13 +41,22 @@ hooks:
 Activates both destructive command warnings and directory-scoped edit restrictions.
 This is the combination of `/careful` + `/freeze` in a single command.
 
+## Quick Contract
+
+- Prerequisites: AskUserQuestion access for the boundary path plus working sibling installs of `/careful` and `/freeze`.
+- Outputs: destructive-command warnings and a persisted edit boundary for the chosen directory.
+- Stop when: both protections are active, or either dependency / boundary path is missing.
+- If unavailable: if the sibling hook scripts or the requested directory are unavailable, stop and name the exact missing prerequisite instead of claiming full guard mode is active.
+
 **Dependency note:** This skill references hook scripts from the sibling `/careful`
 and `/freeze` skill directories. Both must be installed (they are installed together
 by the gstack setup script).
 
 ```bash
-mkdir -p ~/.gstack/analytics
-echo '{"skill":"guard","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+STATE_ROOT="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_ROOT" ] || STATE_ROOT=".gstack"
+mkdir -p "$STATE_ROOT/analytics"
+echo '{"skill":"guard","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> "$STATE_ROOT/analytics/skill-usage.jsonl" 2>/dev/null || true
 ```
 
 ## Setup
@@ -68,7 +77,8 @@ echo "$FREEZE_DIR"
 2. Ensure trailing slash and save to the freeze state file:
 ```bash
 FREEZE_DIR="${FREEZE_DIR%/}/"
-STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.gstack}"
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_DIR" ] || STATE_DIR=".gstack"
 mkdir -p "$STATE_DIR"
 echo "$FREEZE_DIR" > "$STATE_DIR/freeze-dir.txt"
 echo "Freeze boundary set: $FREEZE_DIR"

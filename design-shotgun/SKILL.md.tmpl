@@ -30,6 +30,13 @@ You are a design brainstorming partner. Generate multiple AI design variants, op
 side-by-side in the user's browser, and iterate until they approve a direction. This is
 visual brainstorming, not a review process.
 
+## Quick Contract
+
+- Prerequisites: a usable design brief, the design binary, and a writable project design-artifact directory.
+- Outputs: multiple design variants, one approved direction, and persisted taste/approval artifacts when the project store is available.
+- Stop when: the design binary is unavailable, context stays too thin after two rounds, or the user wants to reroute instead of choosing or revising a direction.
+- If unavailable: if prior taste memory, office-hours artifacts, or browser comparison support are unavailable, continue with fresh variant generation and state which history or board surface was skipped.
+
 {{DESIGN_SETUP}}
 
 {{UX_PRINCIPLES}}
@@ -39,9 +46,11 @@ visual brainstorming, not a review process.
 Check for prior design exploration sessions for this project:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 setopt +o nomatch 2>/dev/null || true
-_PREV=$(find ~/.gstack/projects/$SLUG/designs/ -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -5)
+_PREV=$(find "$PROJECT_STORE/designs/" -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -5)
 [ -n "$_PREV" ] && echo "PREVIOUS_SESSIONS_FOUND" || echo "NO_PREVIOUS_SESSIONS"
 echo "$_PREV"
 ```
@@ -93,7 +102,9 @@ ls src/ app/ pages/ components/ 2>/dev/null | head -30
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-ls ~/.gstack/projects/$SLUG/*office-hours* 2>/dev/null | head -5
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+ls "$PROJECT_STORE"/*office-hours* 2>/dev/null | head -5
 ```
 
 If DESIGN.md exists, tell the user: "I'll follow your design system in DESIGN.md by
@@ -125,7 +136,7 @@ Two rounds max of context gathering, then proceed with what you have and note as
 Read both the persistent taste profile (cross-session) AND the per-session approved
 designs to bias generation toward the user's demonstrated taste.
 
-**Persistent taste profile (v1 schema at `~/.gstack/projects/$SLUG/taste-profile.json`):**
+**Persistent taste profile (v1 schema at the project store: `$HOME/.gstack/projects/$SLUG/taste-profile.json` when `HOME` is available, otherwise `.gstack/projects/$SLUG/taste-profile.json`):**
 
 {{TASTE_PROFILE}}
 
@@ -133,7 +144,9 @@ designs to bias generation toward the user's demonstrated taste.
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_TASTE=$(find ~/.gstack/projects/$SLUG/designs/ -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -10)
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+_TASTE=$(find "$PROJECT_STORE/designs/" -name "approved.json" -maxdepth 2 2>/dev/null | sort -r | head -10)
 ```
 
 If prior sessions exist, read each `approved.json` and extract patterns from the
@@ -153,8 +166,10 @@ The CLI handles schema migration from approved.json, decay, and conflict flaggin
 Set up the output directory:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-_DESIGN_DIR="$HOME/.gstack/projects/$SLUG/designs/<screen-name>-$(date +%Y%m%d)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+_DESIGN_DIR="$PROJECT_STORE/designs/<screen-name>-$(date +%Y%m%d)"
 mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
@@ -250,9 +265,9 @@ For the evolve path, replace step 1 with:
 {$D path} evolve --screenshot {_DESIGN_DIR}/current.png --brief "{brief}" --output /tmp/variant-{letter}.png
 ```
 
-**Why /tmp/ then cp?** In observed sessions, `$D generate --output ~/.gstack/...`
+**Why /tmp/ then cp?** In observed sessions, `$D generate --output <project-store path>`
 failed with "The operation was aborted" while `--output /tmp/...` succeeded. This is
-a sandbox restriction. Always generate to `/tmp/` first, then `cp`.
+a sandbox restriction. Always generate to `/tmp/` first, then `cp` into the project design store.
 
 ### Step 3d: Results
 
@@ -315,7 +330,7 @@ If standalone, offer next steps via AskUserQuestion:
 ## Important Rules
 
 1. **Never save to `.context/`, `docs/designs/`, or `/tmp/`.** All design artifacts go
-   to `~/.gstack/projects/$SLUG/designs/`. This is enforced. See DESIGN_SETUP above.
+   to the project design store: `$HOME/.gstack/projects/$SLUG/designs/` when `HOME` is available, otherwise `.gstack/projects/$SLUG/designs/`. This is enforced. See DESIGN_SETUP above.
 2. **Show variants inline before opening the board.** The user should see designs
    immediately in their terminal. The browser board is for detailed feedback.
 3. **Confirm feedback before saving.** Always summarize what you understood and verify.

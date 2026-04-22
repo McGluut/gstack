@@ -992,6 +992,13 @@ build times, IDE integration.
 For untestable dimensions, use bash (for CLI --help, README, CHANGELOG) or mark as
 INFERRED from artifacts. Never guess. State your evidence source for every score.
 
+## Quick Contract
+
+- Prerequisites: a testable docs/product URL or enough repo context to discover one, browse availability for live surfaces, and bash access for CLI/file-based checks.
+- Outputs: a DX scorecard with evidence, optional boomerang comparison against prior `plan-devex-review`, and a review-log entry.
+- Stop when: the target URL cannot be discovered, required credentials block core flows, or the requested dimension cannot be tested or inferred honestly.
+- If unavailable: if browse, prior plan-review logs, or calibration references are unavailable, continue with the remaining evidence sources and state which dimensions were inferred or skipped.
+
 ## Step 0: Target Discovery
 
 1. Read CLAUDE.md for project URL, docs URL, CLI install command
@@ -1005,7 +1012,7 @@ If URLs are missing, AskUserQuestion: "What's the URL for the docs/product I sho
 Check for prior /plan-devex-review scores:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
 ~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null | grep plan-devex-review || echo "NO_PRIOR_PLAN_REVIEW"
 ```
 
@@ -1024,7 +1031,7 @@ Step 2: [what dev does]          Time: [est]  Friction: [low/med/high]  Evidence
 TOTAL: [N steps, M minutes]
 ```
 
-Score 0-10. Load "## Pass 1" from dx-hall-of-fame.md for calibration.
+Score 0-10. Load "## Pass 1" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
 
 ## Step 2: API/CLI/SDK Ergonomics Audit
 
@@ -1033,7 +1040,7 @@ Test what you can:
 - API playground: Navigate via browse if one exists. Screenshot.
 - Naming: Check consistency across the API surface.
 
-Score 0-10. Load "## Pass 2" from dx-hall-of-fame.md for calibration.
+Score 0-10. Load "## Pass 2" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
 
 ## Step 3: Error Message Audit
 
@@ -1043,7 +1050,7 @@ Trigger common error scenarios:
 
 Screenshot each error. Score against the Elm/Rust/Stripe three-tier model.
 
-Score 0-10. Load "## Pass 3" from dx-hall-of-fame.md for calibration.
+Score 0-10. Load "## Pass 3" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
 
 ## Step 4: Documentation Audit
 
@@ -1053,7 +1060,7 @@ Navigate the docs structure via browse:
 - Check language switcher behavior
 - Check information architecture (can you find what you need in <2 min?)
 
-Screenshot key findings. Score 0-10. Load "## Pass 4" from dx-hall-of-fame.md.
+Screenshot key findings. Score 0-10. Load "## Pass 4" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
 
 ## Step 5: Upgrade Path Audit
 
@@ -1062,7 +1069,7 @@ Read via bash:
 - Migration guides (exist? step-by-step?)
 - Deprecation warnings in code (grep for deprecated/obsolete)
 
-Score 0-10. Evidence: INFERRED from files. Load "## Pass 5" from dx-hall-of-fame.md.
+Score 0-10. Evidence: INFERRED from files. Load "## Pass 5" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
 
 ## Step 6: Developer Environment Audit
 
@@ -1072,7 +1079,7 @@ Read via bash:
 - TypeScript types (if applicable)
 - Test utilities / fixtures
 
-Score 0-10. Evidence: INFERRED from files. Load "## Pass 6" from dx-hall-of-fame.md.
+Score 0-10. Evidence: INFERRED from files. Load "## Pass 6" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
 
 ## Step 7: Community & Ecosystem Audit
 

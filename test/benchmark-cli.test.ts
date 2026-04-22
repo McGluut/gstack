@@ -104,11 +104,10 @@ describe('gstack-model-benchmark --dry-run', () => {
     // This test exists to catch regressions where the NOT READY branch itself
     // breaks (crash, missing remediation hint, wrong message format).
     //
-    // Note: claude adapter's `os.homedir()` call is sometimes cached by Bun and
-    // doesn't always pick up the HOME override, so this test asserts only on
-    // gpt + gemini adapters where HOME redirection reliably makes the adapter's
-    // credentials-path check fail. Two adapters hitting NOT READY with full
-    // remediation messages is sufficient coverage for the branch.
+    // Provider availability checks should honor HOME redirection so this test
+    // can force a clean "no auth" state without touching the developer's real
+    // profile directories. Two adapters hitting NOT READY with full remediation
+    // messages is sufficient coverage for the branch.
     const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-noauth-home-'));
     try {
       const minimalEnv: Record<string, string> = {

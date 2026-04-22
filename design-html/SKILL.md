@@ -818,6 +818,13 @@ approximations. Computed layout via Pretext. Text reflows on resize, heights adj
 to content, cards size themselves, chat bubbles shrinkwrap, editorial spreads flow
 around obstacles.
 
+## Quick Contract
+
+- Prerequisites: either an approved visual reference, a plan-driven design brief, or enough direct user guidance to design one page honestly; optional browse support improves verification.
+- Outputs: one finalized HTML or framework-native artifact, optional `DESIGN.md`, verification screenshots when available, and metadata describing the finalized screen.
+- Stop when: there is no usable design context, the user chooses a prerequisite design skill instead, or the refinement loop reaches a real boundary that needs direction.
+- If unavailable: if browse, Pretext vendor assets, or preview-opening support are unavailable, continue with the artifact generation and state which preview or verification surface was skipped or downgraded.
+
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
 ```bash
@@ -836,7 +843,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 ```
 
@@ -844,8 +851,9 @@ If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If `BROWSE_NOT_AVAILABLE`: surface the board URL or file path explicitly. If
+`~/.claude/skills/gstack/bin/gstack-open-url` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If `DESIGN_READY`: the design binary is available for visual mockup generation.
 Commands:
@@ -987,32 +995,34 @@ If `NEEDS_SETUP`:
 ## Step 0: Input Detection
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 ```
 
 Detect what design context exists for this project. Run all four checks:
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_CEO=$(ls -t ~/.gstack/projects/$SLUG/ceo-plans/*.md 2>/dev/null | head -1)
+_CEO=$(ls -t "$PROJECT_STORE"/ceo-plans/*.md 2>/dev/null | head -1)
 [ -n "$_CEO" ] && echo "CEO_PLAN: $_CEO" || echo "NO_CEO_PLAN"
 ```
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_APPROVED=$(ls -t ~/.gstack/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1)
+_APPROVED=$(ls -t "$PROJECT_STORE"/designs/*/approved.json 2>/dev/null | head -1)
 [ -n "$_APPROVED" ] && echo "APPROVED: $_APPROVED" || echo "NO_APPROVED"
 ```
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_VARIANTS=$(ls -t ~/.gstack/projects/$SLUG/designs/*/variant-*.png 2>/dev/null | head -1)
+_VARIANTS=$(ls -t "$PROJECT_STORE"/designs/*/variant-*.png 2>/dev/null | head -1)
 [ -n "$_VARIANTS" ] && echo "VARIANTS: $_VARIANTS" || echo "NO_VARIANTS"
 ```
 
 ```bash
 setopt +o nomatch 2>/dev/null || true
-_FINALIZED=$(ls -t ~/.gstack/projects/$SLUG/designs/*/finalized.html 2>/dev/null | head -1)
+_FINALIZED=$(ls -t "$PROJECT_STORE"/designs/*/finalized.html 2>/dev/null | head -1)
 [ -n "$_FINALIZED" ] && echo "FINALIZED: $_FINALIZED" || echo "NO_FINALIZED"
 [ -f DESIGN.md ] && echo "DESIGN_MD: exists" || echo "NO_DESIGN_MD"
 ```
@@ -1163,8 +1173,7 @@ For **vanilla HTML output**, check for the vendored Pretext bundle:
 ```bash
 _PRETEXT_VENDOR=""
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-[ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/gstack/design-html/vendor/pretext.js" ] && _PRETEXT_VENDOR="$_ROOT/.claude/skills/gstack/design-html/vendor/pretext.js"
-[ -z "$_PRETEXT_VENDOR" ] && [ -f ~/.claude/skills/gstack/design-html/vendor/pretext.js ] && _PRETEXT_VENDOR=~/.claude/skills/gstack/design-html/vendor/pretext.js
+[ -n "$_ROOT" ] && [ -f "$_ROOT/design-html/vendor/pretext.js" ] && _PRETEXT_VENDOR="$_ROOT/design-html/vendor/pretext.js"
 [ -n "$_PRETEXT_VENDOR" ] && echo "VENDOR: $_PRETEXT_VENDOR" || echo "VENDOR_MISSING"
 ```
 
@@ -1187,10 +1196,10 @@ Run the detected install command. Then use standard imports in the component.
 ### HTML Generation
 
 Write a single file using the Write tool. Save to:
-`~/.gstack/projects/$SLUG/designs/<screen-name>-YYYYMMDD/finalized.html`
+`$PROJECT_STORE/designs/<screen-name>-YYYYMMDD/finalized.html`
 
 For framework output, save to:
-`~/.gstack/projects/$SLUG/designs/<screen-name>-YYYYMMDD/finalized.[tsx|svelte|vue]`
+`$PROJECT_STORE/designs/<screen-name>-YYYYMMDD/finalized.[tsx|svelte|vue]`
 
 **Always include in vanilla HTML:**
 - Pretext source (inlined or CDN, see above)
@@ -1391,11 +1400,11 @@ echo "PID: $_SERVER_PID"
 
 If python3 is not available, fall back to:
 ```bash
-open <path-to-finalized.html>
+~/.claude/skills/gstack/bin/gstack-open-url "<path-to-finalized.html>"
 ```
 
 Tell the user: "Live preview running at http://localhost:$_PORT/finalized.html.
-After each edit, just refresh the browser (Cmd+R) to see changes."
+After each edit, refresh the browser (Cmd+R/F5) to see changes."
 
 When the refinement loop ends (Step 4 exits), kill the server:
 ```bash
@@ -1411,10 +1420,12 @@ kill $_SERVER_PID 2>/dev/null || true
 If `$B` is available (browse binary), take verification screenshots at 3 viewports:
 
 ```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
 $B goto "file://<path-to-finalized.html>"
-$B screenshot /tmp/gstack-verify-mobile.png --width 375
-$B screenshot /tmp/gstack-verify-tablet.png --width 768
-$B screenshot /tmp/gstack-verify-desktop.png --width 1440
+$B screenshot "$TMP_ROOT/gstack-verify-mobile.png" --width 375
+$B screenshot "$TMP_ROOT/gstack-verify-tablet.png" --width 768
+$B screenshot "$TMP_ROOT/gstack-verify-desktop.png" --width 1440
 ```
 
 Show all three screenshots inline using the Read tool. Check for:
@@ -1432,7 +1443,7 @@ If `$B` is not available, skip verification and note:
 ```
 LOOP:
   1. If server is running, tell user to open http://localhost:PORT/finalized.html
-     Otherwise: open <path>/finalized.html
+     Otherwise: open <path>/finalized.html (or use `~/.claude/skills/gstack/bin/gstack-open-url` if available)
 
   2. If an approved mockup PNG exists, show it inline (Read tool) for visual comparison.
      If in plan-driven or freeform mode, skip this step.

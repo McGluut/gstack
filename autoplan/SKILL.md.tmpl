@@ -40,6 +40,13 @@ allowed-tools:
 
 One command. Rough plan in, fully reviewed plan out.
 
+## Quick Contract
+
+- Prerequisites: a plan file or plan content to review, a git repo, and the review skills available on disk. Codex CLI is optional, not required.
+- Outputs: a restore copy of the original plan, an updated reviewed plan, consensus tables, and on approval the review-log entries plus the eng test-plan artifact.
+- Stop when: premise confirmation or a user challenge needs human judgment, or the final approval gate has been presented.
+- If unavailable: if Codex is unavailable, continue in single-model mode and say so. If a required plan file or review-skill file cannot be loaded, stop and ask for a valid input instead of pretending the pipeline ran.
+
 /autoplan reads the full CEO, design, eng, and DX review skill files from disk and follows
 them at full depth — same rigor, same sections, same methodology as running each skill
 manually. The only difference: intermediate AskUserQuestion calls are auto-decided using

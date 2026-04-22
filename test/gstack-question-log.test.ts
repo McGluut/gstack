@@ -7,9 +7,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawnSync } from 'child_process';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin', 'gstack-question-log');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
 
 let tmpHome: string;
 
@@ -22,7 +25,7 @@ afterEach(() => {
 });
 
 function run(payload: string): { stdout: string; stderr: string; status: number } {
-  const res = spawnSync(BIN, [payload], {
+  const res = spawnSync(BASH, [BIN, payload], {
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
@@ -106,7 +109,7 @@ describe('gstack-question-log — valid payloads', () => {
     run(JSON.stringify({ skill: 'ship', question_id: 'ship-y', question_summary: 'b', user_choice: 'ok' }));
     run(JSON.stringify({ skill: 'ship', question_id: 'ship-z', question_summary: 'c', user_choice: 'ok' }));
     expect(readLog().length).toBe(3);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('long summary is truncated to 200 chars', () => {
     const long = 'x'.repeat(250);

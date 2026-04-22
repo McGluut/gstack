@@ -41,6 +41,13 @@ When the user types `/retro`, run this skill.
 - `/retro global` — cross-project retro across all AI coding tools (7d default)
 - `/retro global 14d` — cross-project retro with explicit window
 
+## Quick Contract
+
+- Prerequisites: git history for repo-scoped mode; optional global-discovery helper for `/retro global`; writable `.context/retros/` or `~/.gstack/retros/` only if snapshot persistence is possible.
+- Outputs: one retrospective in the conversation plus a JSON snapshot when the target persistence path is available.
+- Stop when: the requested window is invalid, there are zero commits or sessions in the chosen window, or the required discovery helper for global mode is unavailable.
+- If unavailable: if snapshot persistence or global discovery is unavailable, continue with the repo-scoped narrative and state exactly which persistence or discovery step was skipped.
+
 {{GBRAIN_CONTEXT_LOAD}}
 
 ## Instructions
@@ -490,7 +497,7 @@ Check review JSONL logs for plan completion data from /ship runs this period:
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
 cat ~/.gstack/projects/$SLUG/*-reviews.jsonl 2>/dev/null | grep '"skill":"ship"' | grep '"plan_items_total"' || echo "NO_PLAN_DATA"
 ```
 
@@ -573,21 +580,23 @@ Locate and run the discovery script using this fallback chain:
 
 ```bash
 DISCOVER_BIN=""
-[ -x ~/.claude/skills/gstack/bin/gstack-global-discover ] && DISCOVER_BIN=~/.claude/skills/gstack/bin/gstack-global-discover
-[ -z "$DISCOVER_BIN" ] && [ -x .claude/skills/gstack/bin/gstack-global-discover ] && DISCOVER_BIN=.claude/skills/gstack/bin/gstack-global-discover
+[ -x ~/.claude/skills/gstack/bin/gstack-global-discover.exe ] && DISCOVER_BIN=~/.claude/skills/gstack/bin/gstack-global-discover.exe
+[ -z "$DISCOVER_BIN" ] && [ -x ~/.claude/skills/gstack/bin/gstack-global-discover ] && DISCOVER_BIN=~/.claude/skills/gstack/bin/gstack-global-discover
 [ -z "$DISCOVER_BIN" ] && which gstack-global-discover >/dev/null 2>&1 && DISCOVER_BIN=$(which gstack-global-discover)
-[ -z "$DISCOVER_BIN" ] && [ -f bin/gstack-global-discover.ts ] && DISCOVER_BIN="bun run bin/gstack-global-discover.ts"
+[ -z "$DISCOVER_BIN" ] && [ -f ~/.claude/skills/gstack/bin/gstack-global-discover.ts ] && DISCOVER_BIN="bun run ~/.claude/skills/gstack/bin/gstack-global-discover.ts"
 echo "DISCOVER_BIN: $DISCOVER_BIN"
 ```
 
-If no binary is found, tell the user: "Discovery script not found. Run `bun run build` in the gstack directory to compile it." and stop.
+If no binary is found, tell the user: "Global retro discovery is unavailable here. Install `gstack-global-discover` or ensure it exists in your gstack install." and stop.
 
 Run the discovery:
 ```bash
-$DISCOVER_BIN --since "<window>" --format json 2>/tmp/gstack-discover-stderr
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+$DISCOVER_BIN --since "<window>" --format json 2>"$TMP_ROOT/gstack-discover-stderr"
 ```
 
-Read the stderr output from `/tmp/gstack-discover-stderr` for diagnostic info. Parse the JSON output from stdout.
+Read the stderr output from `$TMP_ROOT/gstack-discover-stderr` for diagnostic info. Parse the JSON output from stdout.
 
 If `total_sessions` is 0, say: "No AI coding sessions found in the last <window>. Try a longer window: `/retro global 30d`" and stop.
 

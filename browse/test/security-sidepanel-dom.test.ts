@@ -26,6 +26,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { chromium, type Browser, type Page } from 'playwright';
+import { isChromiumLaunchable } from './helpers/playwright-availability';
 
 const EXTENSION_DIR = path.resolve(import.meta.dir, '..', '..', 'extension');
 const SIDEPANEL_URL = `file://${EXTENSION_DIR}/sidepanel.html`;
@@ -36,14 +37,7 @@ const SIDEPANEL_URL = `file://${EXTENSION_DIR}/sidepanel.html`;
  * so a runtime probe of `browser` state wouldn't work — all tests would
  * unconditionally get registered as `skip: true`. We need a sync check.
  */
-const CHROMIUM_AVAILABLE = (() => {
-  try {
-    const exe = chromium.executablePath();
-    return !!exe && fs.existsSync(exe);
-  } catch {
-    return false;
-  }
-})();
+const CHROMIUM_AVAILABLE = isChromiumLaunchable();
 
 /**
  * Seed the sidepanel so it thinks it's connected + poll-ready before

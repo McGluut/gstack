@@ -7,10 +7,13 @@
 // bun-only images if/when we add them.
 
 import { test, expect, beforeEach, afterEach } from "bun:test";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveBash } from "./helpers/bash";
+
+const BASH = resolveBash();
 
 let dir: string;
 beforeEach(() => {
@@ -33,10 +36,22 @@ const pkgJson = (version: string | null, extra: Record<string, unknown> = {}) =>
     2,
   ) + "\n";
 
+const runScript = (script: string, extraEnv: Record<string, string> = {}) => {
+  const result = spawnSync(BASH, ["-lc", script], {
+    env: { ...process.env, TEST_DIR: dir, ...extraEnv },
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return {
+    stdout: (result.stdout || "").toString().trim(),
+    stderr: (result.stderr || "").toString().trim(),
+    code: result.status ?? 1,
+  };
+};
+
 const idempotency = (base: string): { stdout: string; code: number } => {
   const script = `
-cd "${dir}" || exit 2
-BASE_VERSION="${base}"
+cd "$TEST_DIR" || exit 2
 CURRENT_VERSION=$(cat VERSION 2>/dev/null | tr -d '\\r\\n[:space:]' || echo "0.0.0.0")
 [ -z "$CURRENT_VERSION" ] && CURRENT_VERSION="0.0.0.0"
 PKG_VERSION=""
@@ -68,18 +83,13 @@ else
     echo "STATE: ALREADY_BUMPED"
   fi
 fi`;
-  try {
-    const stdout = execSync(script, { shell: "/bin/bash", encoding: "utf8" });
-    return { stdout: stdout.trim(), code: 0 };
-  } catch (e: any) {
-    return { stdout: (e.stdout || "").toString().trim(), code: e.status ?? 1 };
-  }
+  const result = runScript(script, { BASE_VERSION: base });
+  return { stdout: result.stdout, code: result.code };
 };
 
 const bump = (newVer: string): { code: number } => {
   const script = `
-cd "${dir}" || exit 2
-NEW_VERSION="${newVer}"
+cd "$TEST_DIR" || exit 2
 if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$'; then
   echo "invalid semver" >&2; exit 1
 fi
@@ -87,28 +97,18 @@ echo "$NEW_VERSION" > VERSION
 if [ -f package.json ]; then
   node -e 'const fs=require("fs"),p=require("./package.json");p.version=process.argv[1];fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\\n")' "$NEW_VERSION"
 fi`;
-  try {
-    execSync(script, { shell: "/bin/bash", stdio: "pipe" });
-    return { code: 0 };
-  } catch (e: any) {
-    return { code: e.status ?? 1 };
-  }
+  return { code: runScript(script, { NEW_VERSION: newVer }).code };
 };
 
 const syncRepair = (): { code: number } => {
   const script = `
-cd "${dir}" || exit 2
+cd "$TEST_DIR" || exit 2
 REPAIR_VERSION=$(cat VERSION | tr -d '\\r\\n[:space:]')
 if ! printf '%s' "$REPAIR_VERSION" | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$'; then
   echo "invalid repair semver" >&2; exit 1
 fi
 node -e 'const fs=require("fs"),p=require("./package.json");p.version=process.argv[1];fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\\n")' "$REPAIR_VERSION"`;
-  try {
-    execSync(script, { shell: "/bin/bash", stdio: "pipe" });
-    return { code: 0 };
-  } catch (e: any) {
-    return { code: e.status ?? 1 };
-  }
+  return { code: runScript(script).code };
 };
 
 const pkgVersion = () =>

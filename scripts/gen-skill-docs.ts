@@ -25,6 +25,10 @@ import type { HostConfig } from './host-config';
 const ROOT = path.resolve(import.meta.dir, '..');
 const DRY_RUN = process.argv.includes('--dry-run');
 
+function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n/g, '\n');
+}
+
 // ─── Host Detection (config-driven) ─────────────────────────
 
 const HOST_ARG = process.argv.find(a => a.startsWith('--host'));
@@ -401,7 +405,7 @@ function processExternalHost(
 }
 
 function processTemplate(tmplPath: string, host: Host = 'claude'): { outputPath: string; content: string; symlinkLoop?: boolean } {
-  const tmplContent = fs.readFileSync(tmplPath, 'utf-8');
+  const tmplContent = normalizeLineEndings(fs.readFileSync(tmplPath, 'utf-8'));
   const relTmplPath = path.relative(ROOT, tmplPath);
   let outputPath = tmplPath.replace(/\.tmpl$/, '');
 
@@ -478,7 +482,7 @@ function processTemplate(tmplPath: string, host: Host = 'claude'): { outputPath:
     content = header + content;
   }
 
-  return { outputPath, content, symlinkLoop };
+  return { outputPath, content: normalizeLineEndings(content), symlinkLoop };
 }
 
 // ─── Main ───────────────────────────────────────────────────
@@ -512,12 +516,14 @@ for (const currentHost of hostsToRun) {
       }
 
       const { outputPath, content, symlinkLoop } = processTemplate(tmplPath, currentHost);
-      const relOutput = path.relative(ROOT, outputPath);
+      const relOutput = path.relative(ROOT, outputPath).replace(/\\/g, '/');
 
       if (symlinkLoop) {
         console.log(`SKIPPED (symlink loop): ${relOutput}`);
       } else if (DRY_RUN) {
-        const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
+        const existing = fs.existsSync(outputPath)
+          ? normalizeLineEndings(fs.readFileSync(outputPath, 'utf-8'))
+          : '';
         if (existing !== content) {
           console.log(`STALE: ${relOutput}`);
           hasChanges = true;

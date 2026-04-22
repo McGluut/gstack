@@ -17,6 +17,12 @@ import * as path from 'path';
 const MODEL_DIR = path.join(os.homedir(), '.gstack', 'models', 'testsavant-small');
 const TOKENIZER_AVAILABLE = fs.existsSync(path.join(MODEL_DIR, 'tokenizer.json'));
 
+if (!TOKENIZER_AVAILABLE) {
+  test('bun-native tokenizer tests require the cached tokenizer assets', () => {
+    expect(TOKENIZER_AVAILABLE).toBe(false);
+  });
+}
+
 describe('bun-native tokenizer', () => {
   test.skipIf(!TOKENIZER_AVAILABLE)('loads HF tokenizer.json into a WordPiece state', async () => {
     const { loadHFTokenizer } = await import('../src/security-bunnative');

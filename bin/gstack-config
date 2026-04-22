@@ -18,7 +18,7 @@ CONFIG_FILE="$STATE_DIR/config.yaml"
 # Default semantics: DEFAULTS table below is the canonical source. Header text
 # is documentation that must stay in sync with DEFAULTS.
 CONFIG_HEADER='# gstack configuration — edit freely, changes take effect on next skill run.
-# Docs: https://github.com/garrytan/gstack
+# Docs: https://github.com/mcgluut/gstack
 #
 # ─── Behavior ────────────────────────────────────────────────────────
 # proactive: true           # Auto-invoke skills when your request matches one.
@@ -131,7 +131,13 @@ case "${1:-}" in
     # Auto-relink skills when prefix setting changes (skip during setup to avoid recursive call)
     if [ "$KEY" = "skill_prefix" ] && [ -z "${GSTACK_SETUP_RUNNING:-}" ]; then
       GSTACK_RELINK="$(dirname "$0")/gstack-relink"
-      [ -x "$GSTACK_RELINK" ] && "$GSTACK_RELINK" || true
+      if [ -f "$GSTACK_RELINK" ]; then
+        if [ -x "$GSTACK_RELINK" ]; then
+          "$GSTACK_RELINK" || true
+        else
+          bash "$GSTACK_RELINK" || true
+        fi
+      fi
     fi
     ;;
   list)

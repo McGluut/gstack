@@ -99,7 +99,7 @@ describe('findPort / isPortAvailable', () => {
     // On macOS/Linux the OS reclaims the port fast enough that the race
     // rarely manifests, but on Windows TIME_WAIT makes it 100% repro.
     const result = Bun.spawnSync(['node', '-e', `
-      require('${polyfillPath}');
+      require(${JSON.stringify(polyfillPath)});
       const net = require('net');
 
       async function test() {

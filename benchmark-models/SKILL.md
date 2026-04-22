@@ -489,13 +489,20 @@ You are running the `/benchmark-models` workflow. Wraps the `gstack-model-benchm
 
 Different from `/benchmark` — that skill measures web page performance (Core Web Vitals, load times). This skill measures AI model performance on gstack skills or arbitrary prompts.
 
+## Quick Contract
+
+- Prerequisites: the `gstack-model-benchmark` binary, at least one authenticated provider from the dry run, and a prompt source (skill, inline prompt, or prompt file).
+- Outputs: one benchmark table in the conversation and an optional saved JSON result under `~/.gstack/benchmarks/`.
+- Stop when: no benchmark binary is available, no providers are authed, the prompt source cannot be resolved, or the user declines the benchmark after the dry run.
+- If unavailable: if judge auth or benchmark-result persistence is unavailable, continue with the provider comparison and note which optional capability was skipped.
+
 ---
 
 ## Step 0: Locate the binary
 
 ```bash
-BIN="$HOME/.claude/skills/gstack/bin/gstack-model-benchmark"
-[ -x "$BIN" ] || BIN=".claude/skills/gstack/bin/gstack-model-benchmark"
+BIN="~/.claude/skills/gstack/bin/gstack-model-benchmark"
+[ -x "$BIN" ] || BIN="$(command -v gstack-model-benchmark 2>/dev/null || true)"
 [ -x "$BIN" ] || { echo "ERROR: gstack-model-benchmark not found. Run ./setup in the gstack install dir." >&2; exit 1; }
 echo "BIN: $BIN"
 ```
@@ -546,7 +553,13 @@ If at least one is OK: AskUserQuestion:
 ## Step 3: Decide on judge
 
 ```bash
-[ -n "$ANTHROPIC_API_KEY" ] || grep -q 'ANTHROPIC' "$HOME/.claude/.credentials.json" 2>/dev/null && echo "JUDGE_AVAILABLE" || echo "JUDGE_UNAVAILABLE"
+if [ -n "$ANTHROPIC_API_KEY" ]; then
+  echo "JUDGE_AVAILABLE"
+elif command -v claude >/dev/null 2>&1; then
+  claude auth status >/dev/null 2>&1 && echo "JUDGE_AVAILABLE" || echo "JUDGE_UNAVAILABLE"
+else
+  echo "JUDGE_UNAVAILABLE"
+fi
 ```
 
 If judge is available, AskUserQuestion:

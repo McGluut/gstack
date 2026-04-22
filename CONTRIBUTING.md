@@ -9,7 +9,7 @@ gstack skills are Markdown files that Claude Code discovers from a `skills/` dir
 That's what dev mode does. It symlinks your repo into the local `.claude/skills/` directory so Claude Code reads skills straight from your checkout.
 
 ```bash
-git clone https://github.com/garrytan/gstack.git && cd gstack
+git clone https://github.com/mcgluut/gstack.git && cd gstack
 bun install                    # install dependencies
 bin/dev-setup                  # activate dev mode
 ```
@@ -131,10 +131,18 @@ Bun auto-loads `.env` — no extra config. Conductor workspaces inherit `.env` f
 | 2+3 | `bun run test:evals` | ~$4 combined | E2E + LLM-as-judge (runs both) |
 
 ```bash
-bun test                     # Tier 1 only (runs on every commit, <5s)
+bun test                     # default free lane (deterministic shards, stable on Windows)
+bun run test:free:list       # inspect which files the free lane currently covers
+bun run test:monolithic      # legacy diagnostic path when debugging Bun runner behavior
 bun run test:e2e             # Tier 2: E2E only (needs EVALS=1, can't run inside Claude Code)
 bun run test:evals           # Tier 2 + 3 combined (~$4/run)
 ```
+
+`bun test` is the contributor-facing default and should be the first gate you
+trust. It routes through the sharded free runner instead of the legacy monolithic
+`bun test ...` invocation, which keeps the default lane portable across hosts,
+including this Windows/Bun path. Reach for `bun run test:monolithic` only when
+you are diagnosing Bun runner behavior itself.
 
 ### Tier 1: Static validation (free)
 
@@ -253,11 +261,11 @@ worth the review overhead.
 
 ## Multi-host development
 
-gstack generates SKILL.md files for 8 hosts from one set of `.tmpl` templates.
+gstack generates SKILL.md files for 10 hosts from one set of `.tmpl` templates.
 Each host is a typed config in `hosts/*.ts`. The generator reads these configs
 to produce host-appropriate output (different frontmatter, paths, tool names).
 
-**Supported hosts:** Claude (primary), Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw.
+**Supported hosts:** Claude (primary), Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw, Hermes, and GBrain.
 
 ### Generating for all hosts
 
@@ -266,7 +274,7 @@ to produce host-appropriate output (different frontmatter, paths, tool names).
 bun run gen:skill-docs                    # Claude (default)
 bun run gen:skill-docs --host codex       # Codex
 bun run gen:skill-docs --host opencode    # OpenCode
-bun run gen:skill-docs --host all         # All 8 hosts
+bun run gen:skill-docs --host all         # All 10 hosts
 
 # Or use build, which does all hosts + compiles binaries
 bun run build

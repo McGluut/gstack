@@ -3,7 +3,7 @@ import { estimateCostUsd } from '../pricing';
 import { execFileSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { resolveHomeDir } from './home';
 
 /**
  * Claude adapter — wraps the `claude` CLI via claude -p.
@@ -24,7 +24,7 @@ export class ClaudeAdapter implements ProviderAdapter {
       return { ok: false, reason: 'claude CLI not found on PATH. Install from https://claude.ai/download or npm i -g @anthropic-ai/claude-code' };
     }
     // Auth sniff: ~/.claude/.credentials.json OR ANTHROPIC_API_KEY
-    const credsPath = path.join(os.homedir(), '.claude', '.credentials.json');
+    const credsPath = path.join(resolveHomeDir(), '.claude', '.credentials.json');
     const hasCreds = fs.existsSync(credsPath);
     const hasKey = !!process.env.ANTHROPIC_API_KEY;
     if (!hasCreds && !hasKey) {

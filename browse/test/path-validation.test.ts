@@ -2,17 +2,18 @@ import { describe, it, expect } from 'bun:test';
 import { validateOutputPath } from '../src/meta-commands';
 import { validateReadPath, SENSITIVE_COOKIE_NAME, SENSITIVE_COOKIE_VALUE } from '../src/read-commands';
 import { BLOCKED_METADATA_HOSTS } from '../src/url-validation';
+import { TEMP_DIR } from '../src/platform';
 import { readFileSync, symlinkSync, unlinkSync, writeFileSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 describe('validateOutputPath', () => {
   it('allows paths within /tmp', () => {
-    expect(() => validateOutputPath('/tmp/screenshot.png')).not.toThrow();
+    expect(() => validateOutputPath(join(TEMP_DIR, 'screenshot.png'))).not.toThrow();
   });
 
   it('allows paths in subdirectories of /tmp', () => {
-    expect(() => validateOutputPath('/tmp/browse/output.png')).not.toThrow();
+    expect(() => validateOutputPath(join(TEMP_DIR, 'browse', 'output.png'))).not.toThrow();
   });
 
   it('allows paths within cwd', () => {
@@ -24,7 +25,7 @@ describe('validateOutputPath', () => {
   });
 
   it('blocks /tmpevil prefix collision', () => {
-    expect(() => validateOutputPath('/tmpevil/file.png')).toThrow(/Path must be within/);
+    expect(() => validateOutputPath(`${TEMP_DIR}-evil/file.png`)).toThrow(/Path must be within/);
   });
 
   it('blocks home directory paths', () => {
@@ -32,7 +33,7 @@ describe('validateOutputPath', () => {
   });
 
   it('blocks path traversal via ..', () => {
-    expect(() => validateOutputPath('/tmp/../etc/passwd')).toThrow(/Path must be within/);
+    expect(() => validateOutputPath(join(TEMP_DIR, '..', 'etc', 'passwd'))).toThrow(/Path must be within/);
   });
 });
 
@@ -58,7 +59,7 @@ describe('upload command path validation', () => {
 
 describe('validateReadPath', () => {
   it('allows absolute paths within /tmp', () => {
-    expect(() => validateReadPath('/tmp/script.js')).not.toThrow();
+    expect(() => validateReadPath(join(TEMP_DIR, 'script.js'))).not.toThrow();
   });
 
   it('allows absolute paths within cwd', () => {
@@ -74,7 +75,7 @@ describe('validateReadPath', () => {
   });
 
   it('blocks /tmpevil prefix collision', () => {
-    expect(() => validateReadPath('/tmpevil/file.js')).toThrow(/Path must be within/);
+    expect(() => validateReadPath(`${TEMP_DIR}-evil/file.js`)).toThrow(/Path must be within/);
   });
 
   it('blocks path traversal sequences', () => {
@@ -90,6 +91,9 @@ describe('validateReadPath', () => {
     try {
       symlinkSync('/etc/passwd', linkPath);
       expect(() => validateReadPath(linkPath)).toThrow(/Path must be within/);
+    } catch (err: any) {
+      if (err?.code === 'EPERM') return;
+      throw err;
     } finally {
       try { unlinkSync(linkPath); } catch {}
     }
@@ -117,20 +121,25 @@ describe('validateOutputPath — symlink resolution', () => {
     try {
       symlinkSync('/etc/crontab', linkPath);
       expect(() => validateOutputPath(linkPath)).toThrow(/Path must be within/);
+    } catch (err: any) {
+      if (err?.code === 'EPERM') return;
+      throw err;
     } finally {
       try { unlinkSync(linkPath); } catch {}
     }
   });
 
   it('allows symlink inside /tmp pointing to another /tmp path', () => {
-    // Use /tmp (TEMP_DIR on macOS/Linux), not os.tmpdir() which may be a different path
-    const realTmp = realpathSync('/tmp');
+    const realTmp = realpathSync(TEMP_DIR);
     const targetPath = join(realTmp, 'test-output-real-' + Date.now() + '.png');
     const linkPath = join(realTmp, 'test-output-link-' + Date.now() + '.png');
     try {
       writeFileSync(targetPath, '');
       symlinkSync(targetPath, linkPath);
       expect(() => validateOutputPath(linkPath)).not.toThrow();
+    } catch (err: any) {
+      if (err?.code === 'EPERM') return;
+      throw err;
     } finally {
       try { unlinkSync(linkPath); } catch {}
       try { unlinkSync(targetPath); } catch {}
@@ -142,6 +151,9 @@ describe('validateOutputPath — symlink resolution', () => {
     try {
       symlinkSync('/etc', linkDir);
       expect(() => validateOutputPath(join(linkDir, 'evil.png'))).toThrow(/Path must be within/);
+    } catch (err: any) {
+      if (err?.code === 'EPERM') return;
+      throw err;
     } finally {
       try { unlinkSync(linkDir); } catch {}
     }

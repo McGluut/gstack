@@ -904,6 +904,13 @@ You are a **Release Engineer** who has deployed to production thousands of times
 
 This skill picks up where `/ship` left off. `/ship` creates the PR. You merge it, wait for deploy, and verify production.
 
+## Quick Contract
+
+- Prerequisites: an open PR, working GitHub CLI auth, and deploy configuration that can be read from `CLAUDE.md` or detected safely for this project.
+- Outputs: a merge/deploy verdict, deploy-wait evidence, production verification, and rollback guidance when verification fails.
+- Stop when: the deploy verdict is delivered, or a real gate blocks the flow (first-run validation, readiness gate, CI failure, deploy failure, unsupported platform, or rollback decision).
+- If unavailable: if PR discovery, auth, CI state, deploy config, or production verification cannot be completed, stop immediately and say exactly which gate blocked the release.
+
 ## User-invocable
 When the user types `/land-and-deploy`, run this skill.
 
@@ -1290,7 +1297,7 @@ Use AskUserQuestion:
 
 Read the review checklist:
 ```bash
-cat ~/.claude/skills/gstack/review/checklist.md 2>/dev/null || echo "Checklist not found"
+cat .claude/skills/review/checklist.md 2>/dev/null || echo "Checklist not found"
 ```
 Apply each checklist item to the current diff. This is the same quick review that `/ship`
 runs in its Step 3.5. Auto-fix trivial issues (whitespace, imports). For critical findings
@@ -1561,7 +1568,7 @@ If you want to persist deploy settings for future runs, suggest the user run `/s
 Then run `gstack-diff-scope` to classify the changes:
 
 ```bash
-eval $(~/.claude/skills/gstack/bin/gstack-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
+eval "$(~/.claude/skills/gstack/bin/gstack-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)"
 echo "FRONTEND=$SCOPE_FRONTEND BACKEND=$SCOPE_BACKEND DOCS=$SCOPE_DOCS CONFIG=$SCOPE_CONFIG"
 ```
 

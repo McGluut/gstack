@@ -30,6 +30,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { THRESHOLDS, type LayerSignal } from './security';
+import { resolveClaudeCommand } from './claude-bin';
 
 // ─── Model location + packaging ──────────────────────────────
 
@@ -48,7 +49,7 @@ import { THRESHOLDS, type LayerSignal } from './security';
  *   vocab.txt
  *   onnx/model.onnx  (~112MB)
  */
-const MODELS_DIR = path.join(os.homedir(), '.gstack', 'models');
+const MODELS_DIR = process.env.GSTACK_MODELS_DIR || path.join(os.homedir(), '.gstack', 'models');
 const TESTSAVANT_DIR = path.join(MODELS_DIR, 'testsavant-small');
 const TESTSAVANT_HF_URL = 'https://huggingface.co/testsavantai/prompt-injection-defender-small-v0-onnx/resolve/main';
 const TESTSAVANT_FILES = [
@@ -380,8 +381,13 @@ let haikuAvailableCache: boolean | null = null;
 
 function checkHaikuAvailable(): Promise<boolean> {
   if (haikuAvailableCache !== null) return Promise.resolve(haikuAvailableCache);
+  const claudeCommand = resolveClaudeCommand();
+  if (!claudeCommand) {
+    haikuAvailableCache = false;
+    return Promise.resolve(false);
+  }
   return new Promise((resolve) => {
-    const p = spawn('claude', ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(claudeCommand.command, [...claudeCommand.argsPrefix, '--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
     let done = false;
     const finish = (ok: boolean) => {
       if (done) return;
@@ -434,6 +440,10 @@ export async function checkTranscript(params: {
   if (!available) {
     return { layer: 'transcript_classifier', confidence: 0, meta: { degraded: true, reason: 'claude_cli_not_found' } };
   }
+  const claudeCommand = resolveClaudeCommand();
+  if (!claudeCommand) {
+    return { layer: 'transcript_classifier', confidence: 0, meta: { degraded: true, reason: 'claude_cli_not_found' } };
+  }
 
   const { user_message, tool_calls, tool_output } = params;
   const windowed = tool_calls.slice(-3);
@@ -460,7 +470,7 @@ export async function checkTranscript(params: {
     // claude-haiku-4-5-20251001). The pinned form 'haiku-4-5' returned 404
     // because the CLI doesn't accept that shorthand. Using the alias keeps
     // us on the latest Haiku as models roll forward.
-    const p = spawn('claude', [
+    const p = spawn(claudeCommand.command, [...claudeCommand.argsPrefix,
       '-p', prompt,
       '--model', 'haiku',
       '--output-format', 'json',

@@ -9,6 +9,8 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
+const IS_WINDOWS = process.platform === 'win32';
+
 // ─── Binary Discovery ───────────────────────────────────────────
 
 function getGitRoot(): string | null {
@@ -28,19 +30,26 @@ export function locateBinary(): string | null {
   const root = getGitRoot();
   const home = homedir();
   const markers = ['.codex', '.agents', '.claude'];
+  const resolveBinary = (basePath: string): string | null => {
+    const candidates = IS_WINDOWS ? [`${basePath}.exe`, basePath] : [basePath];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    return null;
+  };
 
   // Workspace-local takes priority (for development)
   if (root) {
     for (const m of markers) {
-      const local = join(root, m, 'skills', 'gstack', 'browse', 'dist', 'browse');
-      if (existsSync(local)) return local;
+      const local = resolveBinary(join(root, m, 'skills', 'gstack', 'browse', 'dist', 'browse'));
+      if (local) return local;
     }
   }
 
   // Global fallback
   for (const m of markers) {
-    const global = join(home, m, 'skills', 'gstack', 'browse', 'dist', 'browse');
-    if (existsSync(global)) return global;
+    const global = resolveBinary(join(home, m, 'skills', 'gstack', 'browse', 'dist', 'browse'));
+    if (global) return global;
   }
 
   return null;
@@ -58,4 +67,6 @@ function main() {
   console.log(bin);
 }
 
-main();
+if (import.meta.main) {
+  main();
+}

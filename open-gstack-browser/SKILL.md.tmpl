@@ -29,6 +29,13 @@ anti-bot stealth, and custom branding. You see every action in real time.
 
 {{BROWSE_SETUP}}
 
+## Quick Contract
+
+- Prerequisites: a working browse install, a headed environment that can launch Chromium, and access to the repo-local extension assets.
+- Outputs: a connected headed browser session, extension path diagnostics, and a guided path to the sidebar panel.
+- Stop when: `connect` fails to produce headed mode, the browser cannot be focused, or the extension path cannot be resolved well enough to guide manual loading.
+- If unavailable: if automatic extension loading or browser focus fails, continue with manual extension-path guidance and explicit diagnostics rather than pretending the headed flow is ready.
+
 ## Step 0: Pre-flight cleanup
 
 Before connecting, kill any stale browse servers and clean up lock files that
@@ -37,6 +44,7 @@ positives and Chromium profile lock conflicts.
 
 ```bash
 # Kill any existing browse server
+_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.gstack/browse.json" ]; then
   _OLD_PID=$(cat "$(git rev-parse --show-toplevel)/.gstack/browse.json" 2>/dev/null | grep -o '"pid":[0-9]*' | grep -o '[0-9]*')
   [ -n "$_OLD_PID" ] && kill "$_OLD_PID" 2>/dev/null || true
@@ -45,7 +53,9 @@ if [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.gstack/browse.json" ]; th
   rm -f "$(git rev-parse --show-toplevel)/.gstack/browse.json"
 fi
 # Clean Chromium profile locks (can persist after crashes)
-_PROFILE_DIR="$HOME/.gstack/chromium-profile"
+_PROFILE_DIR="${HOME:+$HOME/.gstack/chromium-profile}"
+[ -n "$_PROFILE_DIR" ] || _PROFILE_DIR="${_ROOT:-.}/.gstack/chromium-profile"
+mkdir -p "$_PROFILE_DIR"
 for _LF in SingletonLock SingletonSocket SingletonCookie; do
   rm -f "$_PROFILE_DIR/$_LF" 2>/dev/null || true
 done
@@ -94,8 +104,7 @@ Also find the extension path so you can help the user if they need to load it ma
 ```bash
 _EXT_PATH=""
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-[ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/gstack/extension/manifest.json" ] && _EXT_PATH="$_ROOT/.claude/skills/gstack/extension"
-[ -z "$_EXT_PATH" ] && [ -f "$HOME/.claude/skills/gstack/extension/manifest.json" ] && _EXT_PATH="$HOME/.claude/skills/gstack/extension"
+[ -n "$_ROOT" ] && [ -f "$_ROOT/extension/manifest.json" ] && _EXT_PATH="$_ROOT/extension"
 echo "EXTENSION_PATH: ${_EXT_PATH:-NOT FOUND}"
 ```
 

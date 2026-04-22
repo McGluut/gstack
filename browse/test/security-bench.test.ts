@@ -40,6 +40,12 @@ const CACHE_FILE = path.join(CACHE_DIR, 'test-rows.json');
 const SAMPLE_SIZE = 200;
 const HF_API = 'https://datasets-server.huggingface.co/rows?dataset=perplexity-ai/browsesafe-bench&config=default&split=test';
 
+if (!ML_AVAILABLE) {
+  test('BrowseSafe-Bench smoke requires the cached TestSavant model', () => {
+    expect(ML_AVAILABLE).toBe(false);
+  });
+}
+
 type BenchRow = { content: string; label: 'yes' | 'no' };
 
 async function fetchDatasetSample(): Promise<BenchRow[]> {

@@ -13,6 +13,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GSTACK_CONFIG="${SCRIPT_DIR}/gstack-config"
 
+run_script() {
+  local script="$1"
+  shift
+  if [ -x "$script" ]; then
+    "$script" "$@"
+  else
+    bash "$script" "$@"
+  fi
+}
+
+link_or_copy_skill() {
+  local source="$1"
+  local dest="$2"
+  if ln -snf "$source" "$dest" 2>/dev/null; then
+    return 0
+  fi
+  rm -f "$dest"
+  cp "$source" "$dest"
+}
+
 # Detect install dir
 INSTALL_DIR="${GSTACK_INSTALL_DIR:-}"
 if [ -z "$INSTALL_DIR" ]; then
@@ -34,14 +54,14 @@ SKILLS_DIR="${GSTACK_SKILLS_DIR:-$(dirname "$INSTALL_DIR")}"
 [ -d "$SKILLS_DIR" ] || mkdir -p "$SKILLS_DIR"
 
 # Read prefix setting
-PREFIX=$("$GSTACK_CONFIG" get skill_prefix 2>/dev/null || echo "false")
+PREFIX=$(run_script "$GSTACK_CONFIG" get skill_prefix 2>/dev/null || echo "false")
 
 # Helper: remove old skill entry (symlink or real directory with symlinked SKILL.md)
 _cleanup_skill_entry() {
   local entry="$1"
   if [ -L "$entry" ]; then
     rm -f "$entry"
-  elif [ -d "$entry" ] && [ -L "$entry/SKILL.md" ]; then
+  elif [ -d "$entry" ] && { [ -L "$entry/SKILL.md" ] || [ -f "$entry/.gstack-managed" ]; }; then
     rm -rf "$entry"
   fi
 }
@@ -76,12 +96,13 @@ for skill_dir in "$INSTALL_DIR"/*/; do
   [ -L "$target" ] && rm -f "$target"
   # Create real directory with symlinked SKILL.md (absolute path)
   mkdir -p "$target"
-  ln -snf "$INSTALL_DIR/$skill/SKILL.md" "$target/SKILL.md"
+  link_or_copy_skill "$INSTALL_DIR/$skill/SKILL.md" "$target/SKILL.md"
+  printf '%s\n' "$INSTALL_DIR/$skill/SKILL.md" > "$target/.gstack-managed"
   SKILL_COUNT=$((SKILL_COUNT + 1))
 done
 
 # Patch SKILL.md name: fields to match prefix setting
-"$INSTALL_DIR/bin/gstack-patch-names" "$INSTALL_DIR" "$PREFIX"
+run_script "$INSTALL_DIR/bin/gstack-patch-names" "$INSTALL_DIR" "$PREFIX"
 
 if [ "$PREFIX" = "true" ]; then
   echo "Relinked $SKILL_COUNT skills as gstack-*"

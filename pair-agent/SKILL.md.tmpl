@@ -32,6 +32,13 @@ You're sitting in Claude Code with a browser running. You also have another AI a
 open (OpenClaw, Hermes, Codex, Cursor, whatever). You want that other agent to be
 able to browse the web using YOUR browser. This skill makes that happen.
 
+## Quick Contract
+
+- Prerequisites: a running gstack browser server and another agent that can receive pasted instructions. ngrok is optional for remote-machine pairing.
+- Outputs: a one-time setup key, same-machine credentials or remote instructions, and a paired browser session with isolated tabs.
+- Stop when: the connection instructions are delivered and the flow is waiting on the user or remote agent, or when pairing has been confirmed complete.
+- If unavailable: if ngrok is missing, fall back to same-machine or manual-local instructions. If the browser server or pairing helper cannot start, surface the error and stop.
+
 ## How it works
 
 Your gstack browser runs a local HTTP server. This skill creates a one-time setup key,
@@ -103,6 +110,8 @@ Use AskUserQuestion:
 Options:
 - A) Same machine (write credentials directly)
 - B) Different machine (generate instruction block for copy-paste)
+
+If B is chosen, preflight remote requirements immediately. Do not promise a remote instruction block until ngrok status is known. If ngrok is missing or not authenticated, stop after naming the exact prerequisite gap and the next user action.
 
 ## Step 4: Execute pairing
 

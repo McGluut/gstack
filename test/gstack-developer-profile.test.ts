@@ -20,6 +20,8 @@ import { spawnSync } from 'child_process';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN_DEV = path.join(ROOT, 'bin', 'gstack-developer-profile');
 const BIN_LOG = path.join(ROOT, 'bin', 'gstack-question-log');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 20000 : 5000;
 
 let tmpHome: string;
 
@@ -31,8 +33,20 @@ afterEach(() => {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
+function resolveBash(): string {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(whichCmd, ['bash'], {
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 5000,
+  });
+  const bash = result.stdout?.split(/\r?\n/).find(Boolean)?.trim();
+  if (!bash) throw new Error('bash not found on PATH');
+  return bash;
+}
+
 function runDev(...args: string[]): { stdout: string; stderr: string; status: number } {
-  const res = spawnSync(BIN_DEV, args, {
+  const res = spawnSync(BASH, [BIN_DEV, ...args], {
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
@@ -45,7 +59,7 @@ function runDev(...args: string[]): { stdout: string; stderr: string; status: nu
 }
 
 function logQuestion(payload: Record<string, unknown>): number {
-  const res = spawnSync(BIN_LOG, [JSON.stringify(payload)], {
+  const res = spawnSync(BASH, [BIN_LOG, JSON.stringify(payload)], {
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
@@ -149,7 +163,7 @@ describe('gstack-developer-profile --migrate', () => {
     expect(p.signals_accumulated.pushback).toBe(1);
     expect(p.resources_shown.length).toBe(2);
     expect(p.topics.length).toBe(3);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('idempotent — second migrate is no-op when profile exists', () => {
     writeLegacyProfile([{ date: '2026-03-01', mode: 'builder', project_slug: 'x', signals: ['taste'] }]);
@@ -258,7 +272,7 @@ describe('gstack-developer-profile --derive', () => {
     expect(p.inferred.values.scope_appetite).toBeGreaterThan(0.5);
     expect(p.inferred.diversity.question_ids_covered).toBe(1);
     expect(p.inferred.diversity.skills_covered).toBe(1);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('derive nudges scope_appetite downward after reduce choices', () => {
     for (let i = 0; i < 3; i++) {
@@ -273,7 +287,7 @@ describe('gstack-developer-profile --derive', () => {
     runDev('--derive');
     const p = readProfile() as { inferred: { values: Record<string, number> } };
     expect(p.inferred.values.scope_appetite).toBeLessThan(0.5);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('derive is recomputable — same input, same output', () => {
     for (let i = 0; i < 3; i++) {
@@ -290,7 +304,7 @@ describe('gstack-developer-profile --derive', () => {
     runDev('--derive');
     const v2 = (readProfile() as any).inferred.values;
     expect(v1).toEqual(v2);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('derive ignores events for questions not in registry (ad-hoc ids)', () => {
     logQuestion({
@@ -327,7 +341,7 @@ describe('gstack-developer-profile --trace <dim>', () => {
     expect(r.stdout).toContain('3 events for scope_appetite');
     expect(r.stdout).toContain('plan-ceo-review-mode');
     expect(r.stdout).toContain('expand');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('reports no contributions for untouched dimension', () => {
     logQuestion({

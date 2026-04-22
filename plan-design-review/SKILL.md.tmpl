@@ -34,6 +34,13 @@ to find missing design decisions and ADD THEM TO THE PLAN before implementation.
 
 The output of this skill is a better plan, not a document about the plan.
 
+## Quick Contract
+
+- Prerequisites: a plan with meaningful UI or UX scope, plus design tooling or browser support if mockups and comparison boards are needed.
+- Outputs: plan edits, design decisions, any generated mockup or board paths, and the final review-log entry.
+- Stop when: all seven passes are resolved or explicitly left unresolved and the next-step gate has been presented.
+- If unavailable: if design tooling or a browser board is unavailable, continue with a text-only review and say the visual loop was skipped. If there is no real UI scope, say so and stop instead of faking a design pass.
+
 ## Design Philosophy
 
 You are not here to rubber-stamp this plan's UI. You are here to ensure that when
@@ -182,7 +189,7 @@ planning phase. Generating mockups during planning is the whole point.
 Allowed commands under this exception:
 - `mkdir -p ~/.gstack/projects/$SLUG/designs/...`
 - `$D generate`, `$D variants`, `$D compare`, `$D iterate`, `$D evolve`, `$D check`
-- `open` (fallback for viewing boards when `$B` is not available)
+- `~/.claude/skills/gstack/bin/gstack-open-url <board-url>` (fallback for viewing boards when `$B` is not available)
 
 First, set up the output directory. Name it after the screen/feature being designed and today's date:
 
@@ -346,7 +353,7 @@ Follow the AskUserQuestion format from the Preamble above. Additional rules for 
 * **Map to Design Principles above.** One sentence connecting your recommendation to a specific principle.
 * Label with issue NUMBER + option LETTER (e.g., "3A", "3B").
 * **Escape hatch:** If a section has no issues, say so and move on. If a gap has an obvious fix, state what you'll add and move on — don't waste a question on it. Only use AskUserQuestion when there is a genuine design choice with meaningful tradeoffs.
-* **NEVER use AskUserQuestion to ask which variant the user prefers.** Always create a comparison board first (`$D compare --serve`) and open it in the browser. The board has rating controls, comments, remix/regenerate buttons, and structured feedback output. Use AskUserQuestion ONLY to notify the user the board is open and wait for them to finish — not to present variants inline and ask "which do you prefer?" That is a degraded experience.
+* **NEVER use AskUserQuestion to ask which variant the user prefers.** Always create a comparison board first (`$D compare --serve`) and surface or open the board URL with the cross-platform opener helper when needed. The board has rating controls, comments, remix/regenerate buttons, and structured feedback output. Use AskUserQuestion ONLY to notify the user the board is open and wait for them to finish — not to present variants inline and ask "which do you prefer?" That is a degraded experience.
 
 ## Required Outputs
 

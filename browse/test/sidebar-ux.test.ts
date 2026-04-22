@@ -451,7 +451,7 @@ describe('browser→sidebar tab sync', () => {
     // The server must call syncActiveTabByUrl before getActiveTabId
     // so the agent targets the correct tab
     const cmdIdx = serverSrc.indexOf("url.pathname === '/sidebar-command'");
-    const handler = serverSrc.slice(cmdIdx, cmdIdx + 1200);
+    const handler = serverSrc.slice(cmdIdx, cmdIdx + 1800);
     const syncIdx = handler.indexOf('syncActiveTabByUrl');
     const getIdIdx = handler.indexOf('getActiveTabId');
     expect(syncIdx).toBeGreaterThan(0);
@@ -715,7 +715,8 @@ describe('CSP fallback basic picker', () => {
   test('content.js contains CSSOM iteration with cross-origin try/catch', () => {
     expect(contentSrc).toContain('document.styleSheets');
     expect(contentSrc).toContain('cssRules');
-    expect(contentSrc).toContain('cross-origin');
+    expect(contentSrc).toContain('DOMException');
+    expect(contentSrc).toContain('same-origin only');
   });
 
   test('content.js saves and restores outline on elements', () => {
@@ -1618,8 +1619,8 @@ describe('shutdown cleanup (server.ts)', () => {
 
   test('shutdown kills sidebar-agent daemon process', () => {
     const shutdownFn = serverSrc.slice(
-      serverSrc.indexOf('async function shutdown()'),
-      serverSrc.indexOf('async function shutdown()') + 800,
+      serverSrc.indexOf('async function shutdown('),
+      serverSrc.indexOf('async function shutdown(') + 800,
     );
     expect(shutdownFn).toContain('sidebar-agent');
     expect(shutdownFn).toContain('pkill');

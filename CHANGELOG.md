@@ -1,5 +1,37 @@
 # Changelog
 
+## [Unreleased]
+
+## **This fork hardens gstack for off-the-shelf use.**
+
+The main change is not a new ideology. It is a stricter distribution contract. The skills now surface prerequisites, outputs, stop conditions, and degrade paths near the top instead of assuming the maintainer's machine, shell, or home-directory layout. The default verification path also changed shape: `bun test` now runs through a deterministic free-test shard runner, so the repo's normal test entrypoint completes reliably on this Windows/Bun path instead of depending on Bun's older monolithic behavior.
+
+### The numbers that matter
+
+These come from the repo-visible skill, docs, script, and test deltas in this fork, plus the current default test and audit commands in `package.json`.
+
+| Surface | Before this fork lane | After this fork lane |
+|---------|-----------------------|----------------------|
+| Skill families with first-screen contract hardening | 0 | 4 |
+| Skills covered by the public inventory and contract audit | partial / drift-prone | all 40 |
+| Public contract audit | not present | `bun run skill:audit` |
+| Default `bun test` path on this Windows host | timeout-prone / incomplete | stable exit `0` |
+
+The important number is not "four families." It is that every skill family now has at least one real off-the-shelf pass, and the default test entrypoint finishes cleanly on a host that previously exposed the runner weakness immediately.
+
+### What this means for off-the-shelf users
+
+If you fork this repo or install it on a fresh machine, it should read more like a productized distribution and less like a copy of one maintainer's workflow. You still get the same workflow model. You just get fewer hidden assumptions, clearer stop boundaries, and a default verification lane you can trust before you start changing anything.
+
+### Itemized changes
+
+#### Changed
+
+- Added broad first-screen contract hardening across planning, review/delivery, design/browser, and safety/utility skills.
+- Added a measurable public skill contract via `bun run skill:audit`.
+- Reworked the default `bun test` entrypoint to use the deterministic free-test shard runner instead of Bun's older monolithic path.
+- Updated top-level docs so humans and agents can infer the fork's portability and degradation contract without private maintainer context.
+
 ## [1.6.1.0] - 2026-04-22
 
 ## **Opus 4.7 migration, reviewed. Overlay actually split per model. Routing verified, fanout is still on the list.**

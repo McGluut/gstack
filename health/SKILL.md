@@ -817,8 +817,28 @@ is improving or slipping.
 **HARD GATE:** Do NOT fix any issues. Produce the dashboard and recommendations only.
 The user decides what to act on.
 
+## Quick Contract
+
+- Prerequisites: runnable project health commands, or enough repo signals to infer them, plus write access only if persisting `CLAUDE.md` or health-history state.
+- Outputs: a read-only health dashboard, weighted score, and recommendations, plus optional `CLAUDE.md` and history updates when those surfaces are available.
+- Stop when: the checks run and the dashboard is presented, or the health commands cannot be determined on this host.
+- If unavailable: if shell auto-detect is too fragile on this host, ask the user for the health commands; if the gstack state root is unavailable, still run checks but skip history and trend persistence.
+
 ## User-invocable
 When the user types `/health`, run this skill.
+
+## Runtime Preflight
+
+```bash
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
+[ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
+HISTORY_FILE="$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl"
+echo "GSTACK_STATE_ROOT=$GSTACK_STATE_ROOT"
+echo "HISTORY_FILE=$HISTORY_FILE"
+```
+
+If shell auto-detect snippets are unavailable or clearly non-portable on this host, ask the user for the health commands instead of pretending the Unix examples are portable. If `GSTACK_STATE_ROOT` cannot be created or written, continue with the dashboard but skip history/trend persistence.
 
 ---
 
@@ -987,7 +1007,7 @@ DETAILS: Lint (3 warnings)
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 ```
 
-Append one JSONL line to `~/.gstack/projects/$SLUG/health-history.jsonl`:
+Append one JSONL line to `$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl`:
 
 ```json
 {"ts":"2026-03-31T14:30:00Z","branch":"main","score":9.1,"typecheck":10,"lint":8,"test":10,"deadcode":7,"shell":10,"duration_s":23}
@@ -1006,12 +1026,14 @@ If a category was skipped, set its value to `null`.
 
 ## Step 6: Trend Analysis + Recommendations
 
-Read the last 10 entries from `~/.gstack/projects/$SLUG/health-history.jsonl` (if the
+Read the last 10 entries from `$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl` (if the
 file exists and has prior entries).
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
-tail -10 ~/.gstack/projects/$SLUG/health-history.jsonl 2>/dev/null || echo "NO_HISTORY"
+GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
+[ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
+tail -10 "$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl" 2>/dev/null || echo "NO_HISTORY"
 ```
 
 **If prior entries exist, show the trend:**

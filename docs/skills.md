@@ -8,25 +8,33 @@ Detailed guides for every gstack skill — philosophy, workflow, and examples.
 | [`/plan-ceo-review`](#plan-ceo-review) | **CEO / Founder** | Rethink the problem. Find the 10-star product hiding inside the request. Four modes: Expansion, Selective Expansion, Hold Scope, Reduction. |
 | [`/plan-eng-review`](#plan-eng-review) | **Eng Manager** | Lock in architecture, data flow, diagrams, edge cases, and tests. Forces hidden assumptions into the open. |
 | [`/plan-design-review`](#plan-design-review) | **Senior Designer** | Interactive plan-mode design review. Rates each dimension 0-10, explains what a 10 looks like, fixes the plan. Works in plan mode. |
+| [`/plan-devex-review`](#plan-devex-review) | **Developer Experience Lead** | Interactive DX plan review for APIs, CLIs, SDKs, docs, and onboarding before implementation. |
 | [`/design-consultation`](#design-consultation) | **Design Partner** | Build a complete design system from scratch. Knows the landscape, proposes creative risks, generates realistic product mockups. Design at the heart of all other phases. |
 | [`/review`](#review) | **Staff Engineer** | Find the bugs that pass CI but blow up in production. Auto-fixes the obvious ones. Flags completeness gaps. |
 | [`/investigate`](#investigate) | **Debugger** | Systematic root-cause debugging. Iron Law: no fixes without investigation. Traces data flow, tests hypotheses, stops after 3 failed fixes. |
 | [`/design-review`](#design-review) | **Designer Who Codes** | Live-site visual audit + fix loop. 80-item audit, then fixes what it finds. Atomic commits, before/after screenshots. |
 | [`/design-shotgun`](#design-shotgun) | **Design Explorer** | Generate multiple AI design variants, open a comparison board in your browser, and iterate until you approve a direction. Taste memory biases toward your preferences. |
 | [`/design-html`](#design-html) | **Design Engineer** | Generates production-quality Pretext-native HTML. Works with approved mockups, CEO plans, design reviews, or from scratch. Text reflows on resize, heights adjust to content. Smart API routing per design type. Framework detection for React/Svelte/Vue. |
+| [`/devex-review`](#devex-review) | **DX Tester** | Live developer experience audit. Runs the onboarding, measures time-to-hello-world, and captures friction with evidence. |
 | [`/qa`](#qa) | **QA Lead** | Test your app, find bugs, fix them with atomic commits, re-verify. Auto-generates regression tests for every fix. |
 | [`/qa-only`](#qa) | **QA Reporter** | Same methodology as /qa but report only. Use when you want a pure bug report without code changes. |
 | [`/ship`](#ship) | **Release Engineer** | Sync main, run tests, audit coverage, push, open PR. Bootstraps test frameworks if you don't have one. One command. |
 | [`/land-and-deploy`](#land-and-deploy) | **Release Engineer** | Merge the PR, wait for CI and deploy, verify production health. One command from "approved" to "verified in production." |
 | [`/canary`](#canary) | **SRE** | Post-deploy monitoring loop. Watches for console errors, performance regressions, and page failures using the browse daemon. |
 | [`/benchmark`](#benchmark) | **Performance Engineer** | Baseline page load times, Core Web Vitals, and resource sizes. Compare before/after on every PR. Track trends over time. |
+| [`/benchmark-models`](#benchmark-models) | **Model Benchmark** | Compare Claude, GPT, and Gemini on the same skill prompt with latency, token, cost, and optional judge output. |
 | [`/cso`](#cso) | **Chief Security Officer** | OWASP Top 10 + STRIDE threat modeling security audit. Scans for injection, auth, crypto, and access control issues. |
 | [`/document-release`](#document-release) | **Technical Writer** | Update all project docs to match what you just shipped. Catches stale READMEs automatically. |
+| [`/make-pdf`](#make-pdf) | **Document Finisher** | Turn markdown into a publication-quality PDF with correct margins, pagination, and cover support. |
 | [`/retro`](#retro) | **Eng Manager** | Team-aware weekly retro. Per-person breakdowns, shipping streaks, test health trends, growth opportunities. |
 | [`/browse`](#browse) | **QA Engineer** | Give the agent eyes. Real Chromium browser, real clicks, real screenshots. ~100ms per command. |
 | [`/setup-browser-cookies`](#setup-browser-cookies) | **Session Manager** | Import cookies from your real browser (Chrome, Arc, Brave, Edge) into the headless session. Test authenticated pages. |
 | [`/autoplan`](#autoplan) | **Review Pipeline** | One command, fully reviewed plan. Runs CEO → design → eng review automatically with encoded decision principles. Surfaces only taste decisions for your approval. |
 | [`/learn`](#learn) | **Memory** | Manage what gstack learned across sessions. Review, search, prune, and export project-specific patterns and preferences. |
+| [`/context-save`](#context-save) | **Checkpoint Save** | Save your current work state, decisions, and remaining tasks so a later session can resume cleanly. |
+| [`/context-restore`](#context-restore) | **Checkpoint Restore** | Restore the latest saved work state across branches or handoffs and continue without re-discovery. |
+| [`/plan-tune`](#plan-tune) | **Question Tuning** | Inspect and tune which gstack follow-up questions should fire and when they should stop. |
+| [`/health`](#health) | **Code Health** | Run the project's quality checks, compute a score, and track trends over time. |
 | | | |
 | **Multi-AI** | | |
 | [`/codex`](#codex) | **Second Opinion** | Independent review from OpenAI Codex CLI. Three modes: code review (pass/fail gate), adversarial challenge, and open consultation with session continuity. Cross-model analysis when both `/review` and `/codex` have run. |
@@ -37,6 +45,7 @@ Detailed guides for every gstack skill — philosophy, workflow, and examples.
 | [`/guard`](#safety--guardrails) | **Full Safety** | Combines /careful + /freeze in one command. Maximum safety for prod work. |
 | [`/unfreeze`](#safety--guardrails) | **Unlock** | Remove the /freeze boundary, allowing edits everywhere again. |
 | [`/open-gstack-browser`](#open-gstack-browser) | **GStack Browser** | Launch GStack Browser with sidebar, anti-bot stealth, auto model routing, cookie import, and Claude Code integration. Watch every action live. |
+| [`/pair-agent`](#pair-agent) | **Multi-Agent Coordinator** | Share the same browser with another AI agent using scoped tokens, isolated tabs, and activity attribution. |
 | [`/setup-deploy`](#setup-deploy) | **Deploy Configurator** | One-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
 | [`/gstack-upgrade`](#gstack-upgrade) | **Self-Updater** | Upgrade gstack to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
 
@@ -281,6 +290,38 @@ When you re-run it, sections already at 8+ get a quick pass. Sections below 8 ge
 
 ---
 
+## `/plan-devex-review`
+
+This is my **developer experience plan review**.
+
+Use it when the product's user is another builder: API consumers, SDK users, CLI users, internal platform teams, or anyone trying to get from "heard about it" to "hello world" without getting stuck. `/plan-devex-review` reviews the plan before code exists, so the onboarding and docs shape are intentional instead of accidental.
+
+It works like the other plan-review skills but focuses on a different failure mode: teams build the feature and only later discover the setup path is confusing, the docs bury the first success moment, or the magical moment never arrives. This skill maps developer personas, benchmarks competitors, traces the getting-started path step by step, and scores the friction.
+
+Three modes keep the review honest:
+
+- **DX EXPANSION** - find the ambitious version that could become a real competitive edge.
+- **DX POLISH** - make every touchpoint from docs to error messages feel deliberate.
+- **DX TRIAGE** - focus only on the highest-friction failures that would block adoption.
+
+```
+You:   /plan-devex-review
+
+Claude: This looks like a developer-facing CLI, so I'm reviewing the
+        path from "heard about it" to "first useful output."
+
+        Persona 1: Existing power user
+        Persona 2: Curious new user
+        Persona 3: Team maintainer rolling it out
+
+        Friction found:
+        - first-run auth is not explained
+        - the example command is too far down the docs
+        - no "I succeeded" moment is defined
+```
+
+---
+
 ## `/design-consultation`
 
 This is my **design partner mode**.
@@ -512,6 +553,29 @@ Claude: Saved to ~/.gstack/projects/myapp/designs/hero-20260330/finalized.html
 
 ---
 
+## `/devex-review`
+
+This is my **developer experience reality check**.
+
+`/plan-devex-review` scores the intended DX before you build. `/devex-review` tests the real thing after it ships or after a meaningful slice lands. It uses the browser and terminal to walk the docs, run the getting-started path, time time-to-hello-world, capture broken instructions, and record the exact points where a new developer would hesitate.
+
+The useful part is the boomerang: if the plan said "three minutes to first success" and the live flow takes eight, the skill can show the gap with evidence instead of taste. That makes DX regressions concrete enough to fix.
+
+```
+You:   /devex-review https://docs.mytool.dev
+
+Claude: Testing the onboarding as a new developer.
+        - docs load: OK
+        - install command: OK
+        - first example: failed, missing env var description
+        - time to first working output: 7m 42s
+
+        DX score: 6/10
+        Biggest friction: setup assumes background knowledge the docs never state.
+```
+
+---
+
 ## `/review`
 
 This is my **paranoid staff engineer mode**.
@@ -714,6 +778,28 @@ Claude: Benchmarking 5 pages (3 runs each)...
 
 ---
 
+## `/benchmark-models`
+
+This is my **cross-model benchmark mode**.
+
+`/benchmark` measures web performance. `/benchmark-models` measures model behavior. It runs the same prompt through Claude, GPT (via Codex CLI), and Gemini, then compares latency, token usage, cost, and optional judge output on the same task. The point is to answer "which model is actually best for this skill or prompt shape?" with data instead of preference.
+
+Unavailable providers degrade honestly. If Gemini auth is missing, the run keeps going with the providers that are available and says what was skipped.
+
+```
+You:   /benchmark-models review "Audit this diff for security bugs"
+
+Claude: Running 3 providers on the same prompt...
+
+        Claude  latency: 11.2s  tokens: 8.4k  cost: low
+        GPT     latency: 14.7s  tokens: 7.9k  cost: medium
+        Gemini  skipped: no auth configured
+
+        Verdict: Claude found the same critical issue fastest.
+```
+
+---
+
 ## `/cso`
 
 This is my **Chief Security Officer**.
@@ -755,6 +841,22 @@ Claude: Analyzing 21 files changed across 3 commits. Found 8 documentation files
 ```
 
 It also polishes CHANGELOG voice (without ever overwriting entries), cleans up completed TODOS, checks cross-doc consistency, and asks about VERSION bumps only when appropriate.
+
+---
+
+## `/make-pdf`
+
+This is my **document finishing mode**.
+
+Sometimes markdown is not the final artifact. `/make-pdf` turns a markdown file into a publication-quality PDF with sane margins, page numbers, optional cover pages, predictable page breaks, and a clickable table of contents. Use it when the output needs to be handed to another human as a finished document, not just viewed in a repo.
+
+```
+You:   /make-pdf docs/designs/launch-plan.md
+
+Claude: Rendering PDF...
+        Output: docs/designs/launch-plan.pdf
+        Applied: cover page, page numbers, TOC, print margins
+```
 
 ---
 
@@ -955,6 +1057,85 @@ Claude: 23 learnings for this project (14 high confidence, 6 medium, 3 low)
 
 ---
 
+## `/context-save`
+
+This is my **save state mode**.
+
+Use it when the work is in motion but the session is about to end, hand off, or split. `/context-save` captures enough state for a later session to resume without replaying the whole branch history: git position, key decisions, remaining work, and any explicit next steps worth preserving.
+
+```
+You:   /context-save
+
+Claude: Saved current context:
+        - branch: feature/auth-rework
+        - decision: keep token refresh server-side
+        - next step: wire retry path into login form
+        - open risk: mobile session timeout not re-tested
+```
+
+---
+
+## `/context-restore`
+
+This is my **resume mode**.
+
+`/context-restore` loads the most recent saved state so the session can continue instead of re-discovering what was already known. It is especially useful after long runs, branch switches, or workspace handoffs where the repo still has the truth but the agent no longer has the active thread context.
+
+```
+You:   /context-restore
+
+Claude: Restored latest saved context from feature/auth-rework.
+        Remaining work:
+        1. wire retry path into login form
+        2. re-run mobile timeout checks
+        3. update release notes if auth copy changed
+```
+
+---
+
+## `/plan-tune`
+
+This is my **question tuning mode**.
+
+gstack asks follow-up questions when it thinks the choice matters. `/plan-tune` lets you inspect that behavior, see which questions keep firing, and set preferences such as always ask, never ask, or ask only for one-way doors. It also exposes the gap between what you explicitly said you prefer and what your repeated behavior suggests.
+
+Use it when the system keeps asking the same question, when you want fewer interruptions, or when you want to inspect the profile gstack has inferred from your choices.
+
+```
+You:   /plan-tune
+
+Claude: Frequent question families:
+        - design expansion
+        - deploy confirmation
+        - risky schema changes
+
+        Current preference:
+        - deploy confirmation: always ask
+        - design expansion: ask only for one-way doors
+        - repetitive naming questions: never ask
+```
+
+---
+
+## `/health`
+
+This is my **code quality dashboard mode**.
+
+`/health` wraps the checks a project already has - tests, type checks, linters, dead-code scans, shell linting, and similar signals - then turns them into one score with trend tracking. It does not replace the underlying tools. It gives you a compact answer to "how healthy is this codebase right now?" and shows which part of the signal moved.
+
+```
+You:   /health
+
+Claude: Health score: 7.8 / 10
+        - tests: passing
+        - typecheck: passing
+        - lint: 3 warnings
+        - dead code: 2 files flagged
+        Trend: +0.6 since last run
+```
+
+---
+
 ## `/open-gstack-browser`
 
 This is my **co-presence mode**.
@@ -972,6 +1153,27 @@ Claude: Launched GStack Browser with sidebar extension.
         Anti-bot stealth active. All $B commands run in headed mode.
         Type in the sidebar to direct the browser agent.
         Sidebar model routing: sonnet for actions, opus for analysis.
+```
+
+---
+
+## `/pair-agent`
+
+This is my **shared-browser coordination mode**.
+
+`/pair-agent` lets another AI agent use the same browser environment without sharing the same tab or raw session control. The skill generates a setup key, scopes the remote access, and gives the second agent its own tab. That makes cross-agent collaboration possible without letting one agent stomp over the other's work.
+
+It is useful when you want a second model or a remote agent to inspect the same live site, reproduce an issue, or help with research while you keep working locally.
+
+```
+You:   /pair-agent
+
+Claude: Paired browser ready.
+        - remote agent gets its own tab
+        - access scoped to this session
+        - activity attribution enabled
+
+        Paste the generated instructions into the other agent to connect.
 ```
 
 ---
@@ -1006,7 +1208,7 @@ When `/review` catches bugs from Claude's perspective, `/codex` brings a complet
 
 **Review** — run `codex review` against the current diff. Codex reads every changed file, classifies findings by severity (P1 critical, P2 high, P3 medium), and returns a PASS/FAIL verdict. Any P1 finding = FAIL. The review is fully independent — Codex doesn't see Claude's review.
 
-**Challenge** — adversarial mode. Codex actively tries to break your code. It looks for edge cases, race conditions, security holes, and assumptions that would fail under load. Uses maximum reasoning effort (`xhigh`). Think of it as a penetration test for your logic.
+**Challenge** — adversarial mode. Codex actively tries to break your code. It looks for edge cases, race conditions, security holes, and assumptions that would fail under load. Uses a high-reasoning adversarial pass by default, with `xhigh` as an explicit escalation when you need the slowest maximum pass. Think of it as a penetration test for your logic.
 
 **Consult** — open conversation with session continuity. Ask Codex anything about the codebase. Follow-up questions reuse the same session, so context carries over. Great for "am I thinking about this correctly?" moments.
 
@@ -1084,7 +1286,7 @@ Remove the `/freeze` boundary, allowing edits everywhere again. The hooks stay r
 
 ## `/gstack-upgrade`
 
-Keep gstack current with one command. It detects your install type (global at `~/.claude/skills/gstack` vs vendored in your project at `.claude/skills/gstack`), runs the upgrade, syncs both copies if you have dual installs, and shows you what changed.
+Keep gstack current with one command. It detects the install root it can safely own, upgrades that install, syncs any secondary vendored copy when applicable, and shows you what changed. The exact path can vary by host and setup mode; the skill discovers it explicitly before mutating anything.
 
 ```
 You:   /gstack-upgrade

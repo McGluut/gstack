@@ -137,6 +137,7 @@ describe('sidebar-command → queue', () => {
     // body — that's the prompt-injection-via-URL defense.  See spawnClaude
     // in browse/src/server.ts.
     expect(entry.pageUrl).toBe('https://example.com/test-page');
+    expect(entry.prompt).not.toContain('https://example.com/test-page');
 
     await api('/sidebar-agent/kill', { method: 'POST' });
   });

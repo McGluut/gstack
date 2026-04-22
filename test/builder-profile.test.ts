@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -10,13 +10,17 @@ const BIN = path.join(ROOT, 'bin');
 let tmpDir: string;
 
 function runProfile(): Record<string, string> {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+  const execOpts: SpawnSyncOptionsWithStringEncoding = {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };
-  const stdout = execSync(`${BIN}/gstack-builder-profile`, execOpts).trim();
+  const processResult = spawnSync('bash', [path.join(BIN, 'gstack-builder-profile')], execOpts);
+  if (processResult.status !== 0) {
+    throw new Error((processResult.stderr || processResult.stdout || 'gstack-builder-profile failed').trim());
+  }
+  const stdout = processResult.stdout.trim();
   const result: Record<string, string> = {};
   for (const line of stdout.split('\n')) {
     const idx = line.indexOf(':');

@@ -36,6 +36,13 @@ After this runs once, `/land-and-deploy` reads CLAUDE.md and skips detection ent
 ## User-invocable
 When the user types `/setup-deploy`, run this skill.
 
+## Quick Contract
+
+- Prerequisites: a readable repo, enough deployment evidence to detect or ask about the platform, and a writable project-instructions file (`CLAUDE.md` in this repo) for persistence.
+- Outputs: a confirmed deploy configuration block in the project instructions file plus a summary of what was detected and what still needs manual verification.
+- Stop when: the user rejects the detected configuration, refuses to confirm a production URL, or the project is explicitly non-deploying.
+- If unavailable: if platform CLIs or health checks are unavailable, persist the best verified configuration anyway and say which verification step remains manual.
+
 ## Instructions
 
 ### Step 1: Check existing configuration

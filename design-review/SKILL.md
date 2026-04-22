@@ -829,6 +829,13 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 
 
+## Quick Contract
+
+- Prerequisites: a testable target URL or diff-aware local app target, browse availability, and a clean working tree before the fix loop starts.
+- Outputs: a structured design audit, per-finding before/after evidence, atomic fix commits for verified improvements, and a saved audit report.
+- Stop when: the tree cannot be made safe for design-review commits, risk rises past the explicit fix threshold, or verification shows the fixes made the design worse.
+- If unavailable: if design mockups, browse verification, or project design-history storage are unavailable, continue with the live audit and note which enhancement surface was skipped.
+
 # /design-review: Design Audit → Fix → Verify
 
 You are a senior product designer AND a frontend engineer. Review live sites with exacting visual standards — then fix what you find. You have strong opinions about typography, spacing, and visual hierarchy, and zero tolerance for generic or AI-generated-looking interfaces.
@@ -1090,7 +1097,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 ```
 
@@ -1098,8 +1105,9 @@ If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If `BROWSE_NOT_AVAILABLE`: surface the board URL or file path explicitly. If
+`~/.claude/skills/gstack/bin/gstack-open-url` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If `DESIGN_READY`: the design binary is available for visual mockup generation.
 Commands:
@@ -1122,8 +1130,10 @@ If `DESIGN_NOT_AVAILABLE`: skip mockup generation — the fix loop works without
 **Create output directories:**
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-REPORT_DIR="$HOME/.gstack/projects/$SLUG/designs/design-audit-$(date +%Y%m%d)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+REPORT_DIR="$PROJECT_STORE/designs/design-audit-$(date +%Y%m%d)"
 mkdir -p "$REPORT_DIR/screenshots"
 echo "REPORT_DIR: $REPORT_DIR"
 ```
@@ -1726,7 +1736,7 @@ Record baseline design score and AI slop score at end of Phase 6.
 ## Output Structure
 
 ```
-~/.gstack/projects/$SLUG/designs/design-audit-{YYYYMMDD}/
+$PROJECT_STORE/designs/design-audit-{YYYYMMDD}/
 ├── design-audit-{domain}.md                  # Structured report
 ├── screenshots/
 │   ├── first-impression.png                  # Phase 1
@@ -1955,6 +1965,7 @@ Write the report to `$REPORT_DIR` (already set up in the setup phase):
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 ```
 Write a one-line summary to `~/.gstack/projects/{slug}/{user}-{branch}-design-audit-{datetime}.md` with a pointer to the full report in `$REPORT_DIR`.
+Write a one-line summary to `$PROJECT_STORE/{user}-{branch}-design-audit-{datetime}.md` with a pointer to the full report in `$REPORT_DIR`.
 
 **Per-finding additions** (beyond standard design audit report):
 - Fix Status: verified / best-effort / reverted / deferred

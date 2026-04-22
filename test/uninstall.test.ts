@@ -35,19 +35,29 @@ describe('gstack-uninstall', () => {
     let tmpDir: string;
     let mockHome: string;
     let mockGitRoot: string;
+    let symlinkCapable: boolean;
 
     beforeEach(() => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-uninstall-test-'));
       mockHome = path.join(tmpDir, 'home');
       mockGitRoot = path.join(tmpDir, 'repo');
+      symlinkCapable = true;
 
       // Create mock gstack install layout
       fs.mkdirSync(path.join(mockHome, '.claude', 'skills', 'gstack'), { recursive: true });
       fs.writeFileSync(path.join(mockHome, '.claude', 'skills', 'gstack', 'SKILL.md'), 'test');
 
       // Create per-skill symlinks (both old unprefixed and new prefixed)
-      fs.symlinkSync('gstack/review', path.join(mockHome, '.claude', 'skills', 'review'));
-      fs.symlinkSync('gstack/ship', path.join(mockHome, '.claude', 'skills', 'gstack-ship'));
+      try {
+        fs.symlinkSync('gstack/review', path.join(mockHome, '.claude', 'skills', 'review'));
+        fs.symlinkSync('gstack/ship', path.join(mockHome, '.claude', 'skills', 'gstack-ship'));
+      } catch (err: any) {
+        if (err?.code === 'EPERM') {
+          symlinkCapable = false;
+        } else {
+          throw err;
+        }
+      }
 
       // Create a non-gstack symlink (should NOT be removed)
       fs.mkdirSync(path.join(mockHome, '.claude', 'skills', 'other-tool'), { recursive: true });
@@ -66,6 +76,7 @@ describe('gstack-uninstall', () => {
     });
 
     test('--force removes global Claude skills and state', () => {
+      if (!symlinkCapable) return;
       const result = spawnSync('bash', [UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
@@ -96,6 +107,7 @@ describe('gstack-uninstall', () => {
     });
 
     test('--keep-state preserves state directory', () => {
+      if (!symlinkCapable) return;
       const result = spawnSync('bash', [UNINSTALL, '--force', '--keep-state'], {
         stdio: 'pipe',
         env: {
@@ -137,6 +149,7 @@ describe('gstack-uninstall', () => {
     });
 
     test('upgrade path: prefixed install + uninstall cleans both old and new symlinks', () => {
+      if (!symlinkCapable) return;
       // Simulate the state after setup --no-prefix followed by setup (with prefix):
       // Both old unprefixed and new prefixed symlinks exist
       // (mockHome already has both 'review' and 'gstack-ship' symlinks)

@@ -874,6 +874,13 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 You are a QA engineer AND a bug-fix engineer. Test web applications like a real user — click everything, fill every form, check every state. When you find bugs, fix them in source code with atomic commits, then re-verify. Produce a structured report with before/after evidence.
 
+## Quick Contract
+
+- Prerequisites: a target URL or diff-aware target, a working browse binary, and a clean tree or an explicit user choice to commit or stash current work first.
+- Outputs: QA report artifacts, screenshots, health scores, fix commits for issues inside the chosen tier, and re-verification evidence.
+- Stop when: all issues in scope for the selected tier are fixed and re-verified, or a real gate blocks progress (dirty tree choice, missing auth, unreachable app, or missing browse capability).
+- If unavailable: if the app, auth path, or browse daemon is unavailable, say what could not be exercised and stop instead of claiming coverage you did not get.
+
 ## Setup
 
 **Parse the user's request for these parameters:**
@@ -1627,7 +1634,7 @@ Write the report to both local and project-scoped locations:
 
 **Local:** `.gstack/qa-reports/qa-report-{domain}-{YYYY-MM-DD}.md`
 
-**Project-scoped:** Write test outcome artifact for cross-session context:
+**Project-scoped:** Write test outcome artifact for cross-session context when the home-store path is available. If that write fails, keep the local report and note that the project-scoped artifact was skipped:
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 ```

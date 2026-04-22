@@ -11,9 +11,18 @@ INPUT=$(cat)
 # Try grep/sed first (handles 99% of cases), fall back to Python for escaped quotes
 CMD=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*:[[:space:]]*"//;s/"$//' || true)
 
-# Python fallback if grep returned empty (e.g., escaped quotes in command)
+# Python fallback if grep returned empty (e.g., escaped quotes or multiline JSON)
 if [ -z "$CMD" ]; then
-  CMD=$(printf '%s' "$INPUT" | python3 -c 'import sys,json; print(json.loads(sys.stdin.read()).get("tool_input",{}).get("command",""))' 2>/dev/null || true)
+  PYTHON_BIN=""
+  for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c "print('ok')" >/dev/null 2>&1; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+  if [ -n "$PYTHON_BIN" ]; then
+    CMD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c 'import sys,json; print(json.loads(sys.stdin.read()).get("tool_input",{}).get("command",""))' 2>/dev/null || true)
+  fi
 fi
 
 # If we still couldn't extract a command, allow

@@ -23,6 +23,13 @@ allowed-tools:
 
 Import logged-in sessions from your real Chromium browser into the headless browse session.
 
+## Quick Contract
+
+- Prerequisites: a working browse session plus either a supported local Chromium-profile install or an already-connected real browser in CDP mode.
+- Outputs: imported cookie domains in the current browse session, or an explicit explanation of why import was skipped.
+- Stop when: CDP mode already provides the real session, no supported Chromium browser is available, or the picker/import flow cannot be opened honestly.
+- If unavailable: if the picker UI cannot be launched or browser decryption prerequisites are missing, say exactly what failed and offer either direct-domain import or `$B connect` as the fallback.
+
 ## CDP mode check
 
 First, check if browse is already connected to the user's real browser:
@@ -51,7 +58,9 @@ $B cookie-import-browser
 ```
 
 This auto-detects installed Chromium browsers and opens
-an interactive picker UI in your default browser where you can:
+an interactive picker UI in your default browser when automatic opening works. If the command reports no supported browser or the picker URL cannot be opened, stop and tell the user whether they should switch to `$B connect` or try direct domain import instead.
+
+Inside the picker UI you can:
 - Switch between installed browsers
 - Search domains
 - Click "+" to import a domain's cookies
@@ -83,6 +92,7 @@ Show the user a summary of imported cookies (domain counts).
 
 - On macOS, the first import per browser may trigger a Keychain dialog — click "Allow" / "Always Allow"
 - On Linux, `v11` cookies may require `secret-tool`/libsecret access; `v10` cookies use Chromium's standard fallback key
+- On Windows, browser profile access may depend on the browser being fully closed before import
 - Cookie picker is served on the same port as the browse server (no extra process)
 - Only domain names and cookie counts are shown in the UI — no cookie values are exposed
 - The browse session persists cookies between commands, so imported cookies work immediately

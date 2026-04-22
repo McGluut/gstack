@@ -43,12 +43,11 @@ describe("resolveBrowseBin", () => {
 
   test("honors BROWSE_BIN when it points at a real executable", () => {
     const originalEnv = process.env.BROWSE_BIN;
-    // `/bin/sh` exists on every POSIX system and is executable.
-    process.env.BROWSE_BIN = "/bin/sh";
+    process.env.BROWSE_BIN = process.execPath;
 
     try {
       const resolved = resolveBrowseBin();
-      expect(resolved).toBe("/bin/sh");
+      expect(resolved).toBe(process.execPath);
     } finally {
       if (originalEnv === undefined) {
         delete process.env.BROWSE_BIN;

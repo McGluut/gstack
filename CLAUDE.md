@@ -4,7 +4,9 @@
 
 ```bash
 bun install          # install dependencies
-bun test             # run free tests (browse + snapshot + skill validation)
+bun test             # run the default free lane (deterministic shards + slop diff)
+bun run test:free:list  # inspect which files are in the free lane
+bun run test:monolithic  # legacy diagnostic path for Bun runner issues
 bun run test:evals   # run paid evals: LLM judge + E2E (diff-based, ~$4/run max)
 bun run test:evals:all  # run ALL paid evals regardless of diff
 bun run test:gate    # run gate-tier tests only (CI default, blocks merge)
@@ -47,13 +49,16 @@ periodic tests run weekly via cron or manually. Use `EVALS_TIER=gate` or
 ## Testing
 
 ```bash
-bun test             # run before every commit — free, <2s
+bun test             # run before every commit — stable default free lane
 bun run test:evals   # run before shipping — paid, diff-based (~$4/run max)
 ```
 
-`bun test` runs skill validation, gen-skill-docs quality checks, and browse
-integration tests. `bun run test:evals` runs LLM-judge quality evals and E2E
-tests via `claude -p`. Both must pass before creating a PR.
+`bun test` is the default contributor verification entrypoint. It runs the free
+test surface through the deterministic shard runner, then runs `slop:diff` as a
+best-effort advisory pass. Use `bun run test:monolithic` only when you are
+debugging legacy Bun runner behavior directly. `bun run test:evals` runs
+LLM-judge quality evals and E2E tests via `claude -p`. Both the default free
+lane and the relevant paid lane must pass before creating a PR.
 
 ## Project structure
 

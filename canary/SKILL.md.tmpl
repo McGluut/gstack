@@ -42,6 +42,13 @@ When the user types `/canary`, run this skill.
 - `/canary <url> --pages /,/dashboard,/settings` — specify pages to monitor
 - `/canary <url> --quick` — single-pass health check (no continuous monitoring)
 
+## Quick Contract
+
+- Prerequisites: a reachable URL, browse daemon availability, and a writable `.gstack/canary-reports/` directory. A home-store path is optional for dashboard logging only.
+- Outputs: screenshots, baseline/report files under `.gstack/canary-reports/`, and a live health verdict in the conversation.
+- Stop when: the URL is unreachable, browse is unavailable, or the user chooses to investigate, roll back, or dismiss instead of continuing the monitor loop.
+- If unavailable: if baseline history or the home-store dashboard path is unavailable, continue as a one-run health check and state which persistence step was skipped.
+
 ## Instructions
 
 ### Phase 1: Setup
@@ -198,10 +205,11 @@ Log the result for the review dashboard:
 
 ```bash
 {{SLUG_EVAL}}
-mkdir -p ~/.gstack/projects/$SLUG
+PROJECT_LOG_DIR="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_LOG_DIR" ] && mkdir -p "$PROJECT_LOG_DIR" || echo "NO_HOME_STORE"
 ```
 
-Write a JSONL entry: `{"skill":"canary","timestamp":"<ISO>","status":"<HEALTHY/DEGRADED/BROKEN>","url":"<url>","duration_min":<N>,"alerts":<N>}`
+If `PROJECT_LOG_DIR` is available, write a JSONL entry there: `{"skill":"canary","timestamp":"<ISO>","status":"<HEALTHY/DEGRADED/BROKEN>","url":"<url>","duration_min":<N>,"alerts":<N>}`. If it is unavailable, note that the dashboard log was skipped and continue.
 
 ### Phase 7: Baseline Update
 

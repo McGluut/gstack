@@ -311,7 +311,8 @@ describe('Server auth security', () => {
     // The connect command must propagate BROWSE_PARENT_PID=0 to serverEnv
     const connectBlock = sliceBetween(CLI_SRC, 'Launching headed Chromium', 'Sidebar agent started');
     expect(connectBlock).toContain("BROWSE_PARENT_PID");
-    expect(connectBlock).toContain("serverEnv.BROWSE_PARENT_PID");
+    expect(connectBlock).toContain("BROWSE_PARENT_PID: '0'");
+    expect(connectBlock).toContain("startServer(serverEnv)");
   });
 
   // Regression: newtab returned 403 for scoped tokens because the tab ownership

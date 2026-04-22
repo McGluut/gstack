@@ -30,9 +30,18 @@ Safety mode is now **active**. Every bash command will be checked for destructiv
 patterns before running. If a destructive command is detected, you'll be warned
 and can choose to proceed or cancel.
 
+## Quick Contract
+
+- Prerequisites: Bash tool access and a working `check-careful.sh` hook from this skill install.
+- Outputs: warning gates for destructive shell commands plus a visible list of what patterns are guarded.
+- Stop when: the hook is active and the warning-only behavior is clear, or the hook script cannot be found.
+- If unavailable: if the hook cannot run, do not claim protection is active; tell the user the safety check is unavailable and proceed only with manual caution.
+
 ```bash
-mkdir -p ~/.gstack/analytics
-echo '{"skill":"careful","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+STATE_ROOT="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_ROOT" ] || STATE_ROOT=".gstack"
+mkdir -p "$STATE_ROOT/analytics"
+echo '{"skill":"careful","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> "$STATE_ROOT/analytics/skill-usage.jsonl" 2>/dev/null || true
 ```
 
 ## What's protected

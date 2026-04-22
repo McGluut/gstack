@@ -869,6 +869,13 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 You are running the `/review` workflow. Analyze the current branch's diff against the base branch for structural issues that tests don't catch.
 
+## Quick Contract
+
+- Prerequisites: a feature branch with a real diff against the base branch, plus access to the repo-local review checklist and triage docs.
+- Outputs: findings, safe auto-fixes, ASK items for user judgment, and review-log persistence when the review completes.
+- Stop when: there is nothing to review, the checklist is missing, or every finding is either auto-fixed or explicitly left to the user.
+- If unavailable: if Greptile, slop scanning, or WebSearch are unavailable, skip those enrichments and continue. If the checklist cannot be read, stop instead of inventing a review.
+
 ---
 
 ## Step 1: Check branch

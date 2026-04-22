@@ -862,6 +862,54 @@ Print the detected base branch name. In every subsequent `git diff`, `git log`,
 branch name wherever the instructions say "the base branch" or `<default>`.
 
 ---
+## Quick Contract
+
+- Prerequisites: `codex` on PATH plus a Bash-compatible shell with `mktemp`, `python3`, and either `timeout` or `gtimeout` available for the JSONL-backed modes.
+- Outputs: a second-opinion review, challenge, or consult transcript, plus optional telemetry and review logging when local gstack helpers are present.
+- Stop when: the requested Codex mode completes, or the Codex binary / auth / Bash-runtime prerequisites are missing.
+- If unavailable: if helper binaries, plan storage, or Bash temp/process helpers are unavailable, skip the optional helper behavior or stop with the exact unsupported prerequisite instead of pretending the run happened.
+
+## Runtime Preflight
+
+Resolve helper and runtime roots before any mode-specific work:
+
+```bash
+GSTACK_BIN_DIR="./bin"
+[ -x "$GSTACK_BIN_DIR/gstack-config" ] || GSTACK_BIN_DIR="$(cd "${CLAUDE_SKILL_DIR}/../bin" 2>/dev/null && pwd)"
+GSTACK_CONFIG_BIN="${GSTACK_BIN_DIR:+$GSTACK_BIN_DIR/gstack-config}"
+GSTACK_CODEX_PROBE="${GSTACK_BIN_DIR:+$GSTACK_BIN_DIR/gstack-codex-probe}"
+GSTACK_REVIEW_LOG="${GSTACK_BIN_DIR:+$GSTACK_BIN_DIR/gstack-review-log}"
+PLAN_ROOT="${GSTACK_PLAN_DIR:-${CLAUDE_PLANS_DIR:-${HOME:+$HOME/.claude/plans}}}"
+[ -n "$PLAN_ROOT" ] || PLAN_ROOT=".claude/plans"
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+command -v bash >/dev/null 2>&1 && command -v mktemp >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 && echo "CODEX_RUNTIME_READY" || echo "CODEX_RUNTIME_MISSING"
+echo "GSTACK_BIN_DIR=$GSTACK_BIN_DIR"
+echo "PLAN_ROOT=$PLAN_ROOT"
+echo "TMP_ROOT=$TMP_ROOT"
+if [ -f "$GSTACK_CODEX_PROBE" ]; then
+  source "$GSTACK_CODEX_PROBE"
+else
+  _gstack_codex_auth_probe() {
+    local _codex_home="${CODEX_HOME:-${HOME:+$HOME/.codex}}"
+    local _k1 _k2
+    _k1=$(printf '%s' "${CODEX_API_KEY:-}" | tr -d '[:space:]')
+    _k2=$(printf '%s' "${OPENAI_API_KEY:-}" | tr -d '[:space:]')
+    if [ -n "$_k1" ] || [ -n "$_k2" ] || { [ -n "$_codex_home" ] && [ -f "$_codex_home/auth.json" ]; }; then
+      echo "AUTH_OK"
+      return 0
+    fi
+    echo "AUTH_FAILED"
+    return 1
+  }
+  _gstack_codex_version_check() { return 0; }
+  _gstack_codex_timeout_wrapper() { local _duration="$1"; shift; "$@"; }
+  _gstack_codex_log_event() { return 0; }
+  _gstack_codex_log_hang() { return 0; }
+fi
+```
+
+If the output contains `CODEX_RUNTIME_MISSING`, stop and tell the user the JSONL-backed Codex wrapper needs Bash-compatible `mktemp` and `python3` on this host. If `GSTACK_CONFIG_BIN`, `GSTACK_CODEX_PROBE`, `GSTACK_REVIEW_LOG`, or `PLAN_ROOT` are missing, skip the related optional helper behavior instead of failing before the actual Codex call.
 
 # /codex — Multi-AI Second Opinion
 
@@ -885,8 +933,9 @@ If `NOT_FOUND`: stop and tell the user:
 
 If `NOT_FOUND`, also log the event:
 ```bash
-_TEL=$(~/.claude/skills/gstack/bin/gstack-config get telemetry 2>/dev/null || echo off)
-source ~/.claude/skills/gstack/bin/gstack-codex-probe 2>/dev/null && _gstack_codex_log_event "codex_cli_missing" 2>/dev/null || true
+_TEL="off"
+[ -x "$GSTACK_CONFIG_BIN" ] && _TEL=$("$GSTACK_CONFIG_BIN" get telemetry 2>/dev/null || echo off)
+_gstack_codex_log_event "codex_cli_missing" 2>/dev/null || true
 ```
 
 ---
@@ -898,8 +947,8 @@ CLI version isn't in the known-bad list. Sourcing `gstack-codex-probe` loads the
 shared helpers that both `/codex` and `/autoplan` use.
 
 ```bash
-_TEL=$(~/.claude/skills/gstack/bin/gstack-config get telemetry 2>/dev/null || echo off)
-source ~/.claude/skills/gstack/bin/gstack-codex-probe
+_TEL="off"
+[ -x "$GSTACK_CONFIG_BIN" ] && _TEL=$("$GSTACK_CONFIG_BIN" get telemetry 2>/dev/null || echo off)
 
 if ! _gstack_codex_auth_probe >/dev/null; then
   _gstack_codex_log_event "codex_auth_failed"
@@ -940,10 +989,11 @@ Parse the user's input to determine which mode to run:
      B) Challenge the diff (adversarial — try to break it)
      C) Something else — I'll provide a prompt
      ```
-   - If no diff, check for plan files scoped to the current project:
-     `ls -t ~/.claude/plans/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1`
-     If no project-scoped match, fall back to: `ls -t ~/.claude/plans/*.md 2>/dev/null | head -1`
+   - If no diff, check for plan files scoped to the current project only if `PLAN_ROOT` exists:
+     `if [ -d "$PLAN_ROOT" ]; then ls -t "$PLAN_ROOT"/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1; fi`
+     If no project-scoped match, fall back to: `if [ -d "$PLAN_ROOT" ]; then ls -t "$PLAN_ROOT"/*.md 2>/dev/null | head -1; fi`
      but warn the user: "Note: this plan may be from a different project."
+     If `PLAN_ROOT` does not exist, skip plan auto-detect and ask the user directly what to send to Codex.
    - If a plan file exists, offer to review it
    - Otherwise, ask: "What would you like to ask Codex?"
 4. `/codex <anything else>` — **Consult mode** (Step 2C), where the remaining text is the prompt
@@ -975,7 +1025,7 @@ Run Codex code review against the current branch diff.
 
 1. Create temp files for output capture:
 ```bash
-TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
+TMPERR=$(mktemp "$TMP_ROOT/codex-err-XXXXXX.txt")
 ```
 
 2. Run the review (5-minute timeout). **Always** pass the filesystem boundary instruction
@@ -991,7 +1041,7 @@ _CODEX_EXIT=$?
 if [ "$_CODEX_EXIT" = "124" ]; then
   _gstack_codex_log_event "codex_timeout" "330"
   _gstack_codex_log_hang "review" "$(wc -c < "$TMPERR" 2>/dev/null || echo 0)"
-  echo "Codex stalled past 5.5 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ~/.codex/logs/."
+  echo "Codex stalled past 5.5 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ${CODEX_HOME:-$HOME/.codex}/logs/."
 fi
 ```
 
@@ -1045,7 +1095,9 @@ CROSS-MODEL ANALYSIS:
 
 7. Persist the review result:
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"codex-review","timestamp":"TIMESTAMP","status":"STATUS","gate":"GATE","findings":N,"findings_fixed":N,"commit":"'"$(git rev-parse --short HEAD)"'"}'
+if [ -x "$GSTACK_REVIEW_LOG" ]; then
+  "$GSTACK_REVIEW_LOG" '{"skill":"codex-review","timestamp":"TIMESTAMP","status":"STATUS","gate":"GATE","findings":N,"findings_fixed":N,"commit":"'"$(git rev-parse --short HEAD)"'"}'
+fi
 ```
 
 Substitute: TIMESTAMP (ISO 8601), STATUS ("clean" if PASS, "issues_found" if FAIL),
@@ -1158,7 +1210,7 @@ If the user passed `--xhigh`, use `"xhigh"` instead of `"high"`.
 _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
 # Fix 1+2: wrap with timeout (gtimeout/timeout fallback chain via probe helper),
 # capture stderr to $TMPERR for auth error detection (was: 2>/dev/null).
-TMPERR=${TMPERR:-$(mktemp /tmp/codex-err-XXXXXX.txt)}
+TMPERR=${TMPERR:-$(mktemp "$TMP_ROOT/codex-err-XXXXXX.txt")}
 _gstack_codex_timeout_wrapper 600 codex exec "<prompt>" -C "$_REPO_ROOT" -s read-only -c 'model_reasoning_effort="high"' --enable web_search_cached --json < /dev/null 2>"$TMPERR" | PYTHONUNBUFFERED=1 python3 -u -c "
 import sys, json
 turn_completed_count = 0
@@ -1195,7 +1247,7 @@ _CODEX_EXIT=${PIPESTATUS[0]}
 if [ "$_CODEX_EXIT" = "124" ]; then
   _gstack_codex_log_event "codex_timeout" "600"
   _gstack_codex_log_hang "challenge" "$(wc -c < "$TMPERR" 2>/dev/null || echo 0)"
-  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ~/.codex/logs/."
+  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ${CODEX_HOME:-$HOME/.codex}/logs/."
 fi
 # Fix 2: surface auth errors from captured stderr instead of dropping them
 if grep -qiE "auth|login|unauthorized" "$TMPERR" 2>/dev/null; then
@@ -1237,17 +1289,19 @@ B) Start a new conversation
 
 2. Create temp files:
 ```bash
-TMPRESP=$(mktemp /tmp/codex-resp-XXXXXX.txt)
-TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
+TMPRESP=$(mktemp "$TMP_ROOT/codex-resp-XXXXXX.txt")
+TMPERR=$(mktemp "$TMP_ROOT/codex-err-XXXXXX.txt")
 ```
 
 3. **Plan review auto-detection:** If the user's prompt is about reviewing a plan,
 or if plan files exist and the user said `/codex` with no arguments:
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-ls -t ~/.claude/plans/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1
+if [ -d "$PLAN_ROOT" ]; then
+  ls -t "$PLAN_ROOT"/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1
+fi
 ```
-If no project-scoped match, fall back to `ls -t ~/.claude/plans/*.md 2>/dev/null | head -1`
+If no project-scoped match, fall back to `if [ -d "$PLAN_ROOT" ]; then ls -t "$PLAN_ROOT"/*.md 2>/dev/null | head -1; fi`
 but warn: "Note: this plan may be from a different project — verify before sending to Codex."
 
 **IMPORTANT — embed content, don't reference path:** Codex runs sandboxed to the repo
@@ -1323,7 +1377,7 @@ _CODEX_EXIT=${PIPESTATUS[0]}
 if [ "$_CODEX_EXIT" = "124" ]; then
   _gstack_codex_log_event "codex_timeout" "600"
   _gstack_codex_log_hang "consult" "$(wc -c < "$TMPERR" 2>/dev/null || echo 0)"
-  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ~/.codex/logs/."
+  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ${CODEX_HOME:-$HOME/.codex}/logs/."
 fi
 ```
 
@@ -1339,7 +1393,7 @@ _CODEX_EXIT=${PIPESTATUS[0]}
 if [ "$_CODEX_EXIT" = "124" ]; then
   _gstack_codex_log_event "codex_timeout" "600"
   _gstack_codex_log_hang "consult-resume" "$(wc -c < "$TMPERR" 2>/dev/null || echo 0)"
-  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ~/.codex/logs/."
+  echo "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check ${CODEX_HOME:-$HOME/.codex}/logs/."
 fi
 
 5. Capture session ID from the streamed output. The parser prints `SESSION_ID:<id>`
@@ -1407,7 +1461,7 @@ If token count is not available, display: `Tokens: unknown`
   "Codex authentication failed. Run `codex login` in your terminal to authenticate via ChatGPT."
 - **Timeout (Bash outer gate):** If the Bash call times out (5 min for Review/Challenge, 10 min for Consult), tell the user:
   "Codex timed out. The prompt may be too large or the API may be slow. Try again or use a smaller scope."
-- **Timeout (inner `timeout` wrapper, exit 124):** If the shell `timeout 600` wrapper fires first, the skill's hang-detection block auto-logs a telemetry event + operational learning and prints: "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check `~/.codex/logs/`." No extra action needed.
+- **Timeout (inner `timeout` wrapper, exit 124):** If the shell `timeout 600` wrapper fires first, the skill's hang-detection block auto-logs a telemetry event + operational learning and prints: "Codex stalled past 10 minutes. Common causes: model API stall, long prompt, network issue. Try re-running. If persistent, split the prompt or check `${CODEX_HOME:-$HOME/.codex}/logs/`." No extra action needed.
 - **Empty response:** If `$TMPRESP` is empty or doesn't exist, tell the user:
   "Codex returned no response. Check stderr for errors."
 - **Session resume failure:** If resume fails, delete the session file and start fresh.

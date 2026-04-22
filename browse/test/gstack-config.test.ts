@@ -44,7 +44,7 @@ describe('gstack-config', () => {
   test('get on missing file returns empty, exit 0', () => {
     const { exitCode, stdout } = run(['get', 'auto_upgrade']);
     expect(exitCode).toBe(0);
-    expect(stdout).toBe('');
+    expect(stdout).toBe('false');
   });
 
   test('get existing key returns value', () => {
@@ -113,7 +113,8 @@ describe('gstack-config', () => {
   test('list on missing file returns empty, exit 0', () => {
     const { exitCode, stdout } = run(['list']);
     expect(exitCode).toBe(0);
-    expect(stdout).toBe('');
+    expect(stdout).toContain('Active values');
+    expect(stdout).toContain('auto_upgrade:');
   });
 
   // ─── usage ────────────────────────────────────────────────
@@ -178,7 +179,7 @@ describe('gstack-config', () => {
   // ─── routing_declined ──────────────────────────────────────
   test('routing_declined defaults to empty (not set)', () => {
     const { stdout } = run(['get', 'routing_declined']);
-    expect(stdout).toBe('');
+    expect(stdout).toBe('false');
   });
 
   test('routing_declined can be set and read', () => {

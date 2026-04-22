@@ -12,9 +12,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawnSync } from 'child_process';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin', 'gstack-question-preference');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
 
 let tmpHome: string;
 
@@ -27,7 +30,7 @@ afterEach(() => {
 });
 
 function run(...args: string[]): { stdout: string; stderr: string; status: number } {
-  const res = spawnSync(BIN, args, {
+  const res = spawnSync(BASH, [BIN, ...args], {
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
@@ -293,7 +296,7 @@ describe('--clear', () => {
     expect(r.stdout).toContain('cleared');
     const prefs = JSON.parse(run('--read').stdout);
     expect(prefs).toEqual({ b: 'always-ask' });
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('clear without id wipes all', () => {
     run('--write', JSON.stringify({ question_id: 'a', preference: 'never-ask', source: 'plan-tune' }));
@@ -301,7 +304,7 @@ describe('--clear', () => {
     run('--clear');
     const prefs = JSON.parse(run('--read').stdout);
     expect(prefs).toEqual({});
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('clear nonexistent id is a NOOP', () => {
     const r = run('--clear', 'does-not-exist');
@@ -324,5 +327,5 @@ describe('--stats', () => {
     expect(r.stdout).toContain('TOTAL: 3');
     expect(r.stdout).toContain('NEVER_ASK: 2');
     expect(r.stdout).toContain('ALWAYS_ASK: 1');
-  });
+  }, SLOW_CLI_TIMEOUT);
 });

@@ -19,6 +19,7 @@ let tmpDir: string = '';
 let stateFile: string = '';
 let queueFile: string = '';
 let mockBinDir: string = '';
+let mockClaudeScript: string = '';
 
 async function api(pathname: string, opts: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
@@ -53,8 +54,7 @@ async function pollChatUntil(
 }
 
 function writeMockClaude(script: string) {
-  const mockPath = path.join(mockBinDir, 'claude');
-  fs.writeFileSync(mockPath, script, { mode: 0o755 });
+  fs.writeFileSync(mockClaudeScript, script, { mode: 0o755 });
 }
 
 beforeAll(async () => {
@@ -62,14 +62,21 @@ beforeAll(async () => {
   stateFile = path.join(tmpDir, 'browse.json');
   queueFile = path.join(tmpDir, 'sidebar-queue.jsonl');
   mockBinDir = path.join(tmpDir, 'bin');
+  mockClaudeScript = path.join(mockBinDir, 'claude-mock.js');
   fs.mkdirSync(mockBinDir, { recursive: true });
   fs.mkdirSync(path.dirname(queueFile), { recursive: true });
 
   // Write default mock claude that outputs canned events
-  writeMockClaude(`#!/bin/bash
-echo '{"type":"system","session_id":"mock-session-123"}'
-echo '{"type":"assistant","message":{"content":[{"type":"text","text":"I can see the page. It looks like a test fixture."}]}}'
-echo '{"type":"result","result":"Done."}'
+  writeMockClaude(`
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+console.log(JSON.stringify({ type: 'system', session_id: 'mock-session-123' }));
+await sleep(20);
+console.log(JSON.stringify({
+  type: 'assistant',
+  message: { content: [{ type: 'text', text: 'I can see the page. It looks like a test fixture.' }] },
+}));
+await sleep(20);
+console.log(JSON.stringify({ type: 'result', result: 'Done.' }));
 `);
 
   // Start server (no browser)
@@ -108,12 +115,15 @@ echo '{"type":"result","result":"Done."}'
   agentProc = spawn(['bun', 'run', agentScript], {
     env: {
       ...process.env,
-      PATH: `${mockBinDir}:${process.env.PATH}`,
       BROWSE_SERVER_PORT: String(serverPort),
+      BROWSE_PORT: String(serverPort),
+      BROWSE_NO_AUTOSTART: '1',
       BROWSE_STATE_FILE: stateFile,
       SIDEBAR_QUEUE_PATH: queueFile,
       SIDEBAR_AGENT_TIMEOUT: '10000',
       BROWSE_BIN: 'browse',  // doesn't matter, mock claude doesn't use it
+      GSTACK_CLAUDE_BIN: process.execPath,
+      GSTACK_CLAUDE_BIN_ARGS: JSON.stringify([mockClaudeScript]),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -169,9 +179,9 @@ describe('sidebar-agent round-trip', () => {
     await resetState();
 
     // Replace mock claude with one that crashes
-    writeMockClaude(`#!/bin/bash
-echo '{"type":"system","session_id":"crash-test"}' >&2
-exit 1
+    writeMockClaude(`
+console.error(JSON.stringify({ type: 'system', session_id: 'crash-test' }));
+process.exit(1);
 `);
 
     await api('/sidebar-command', {
@@ -199,8 +209,14 @@ echo '{"type":"assistant","message":{"content":[{"type":"text","text":"recovered
     await resetState();
 
     // Restore working mock
-    writeMockClaude(`#!/bin/bash
-echo '{"type":"assistant","message":{"content":[{"type":"text","text":"response to: '"'"'$*'"'"'"}]}}'
+    writeMockClaude(`
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+console.log(JSON.stringify({
+  type: 'assistant',
+  message: { content: [{ type: 'text', text: 'response queued cleanly' }] },
+}));
+await sleep(20);
+console.log(JSON.stringify({ type: 'result', result: 'done' }));
 `);
 
     // Send two messages rapidly — first processes, second queues

@@ -3,7 +3,7 @@ import { estimateCostUsd } from '../pricing';
 import { execFileSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { resolveHomeDir } from './home';
 
 /**
  * GPT adapter — wraps the OpenAI `codex` CLI (codex exec with --json output).
@@ -22,7 +22,7 @@ export class GptAdapter implements ProviderAdapter {
       return { ok: false, reason: 'codex CLI not found on PATH. Install: npm i -g @openai/codex' };
     }
     // Auth sniff: ~/.codex/ should contain auth state after `codex login`
-    const codexDir = path.join(os.homedir(), '.codex');
+    const codexDir = path.join(resolveHomeDir(), '.codex');
     if (!fs.existsSync(codexDir)) {
       return { ok: false, reason: 'No ~/.codex/ found. Run `codex login` to authenticate via ChatGPT.' };
     }

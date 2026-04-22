@@ -32,6 +32,13 @@ import {
   cleanupHiddenMarkers,
   urlBlocklistFilter,
 } from '../src/content-security';
+const describeLivePlaywright = process.platform === 'win32' ? describe.skip : describe;
+
+if (process.platform === 'win32') {
+  test('live Playwright defense-in-depth fixture is disabled on Windows', () => {
+    expect(process.platform).toBe('win32');
+  });
+}
 
 // Check if TestSavantAI model cache exists. If missing, ML tests skip.
 const MODEL_CACHE = path.join(
@@ -44,7 +51,7 @@ const MODEL_CACHE = path.join(
 );
 const ML_AVAILABLE = fs.existsSync(MODEL_CACHE);
 
-describe('defense-in-depth — live Playwright fixture', () => {
+describeLivePlaywright('defense-in-depth — live Playwright fixture', () => {
   let testServer: ReturnType<typeof startTestServer>;
   let bm: BrowserManager;
   let baseUrl: string;

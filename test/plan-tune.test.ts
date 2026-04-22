@@ -41,10 +41,28 @@ import {
   matchArchetype,
   getAllArchetypeNames,
 } from '../scripts/archetypes';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+
+function runCli(scriptPath: string, args: string[], env: NodeJS.ProcessEnv): { status: number; stdout: string; stderr: string } {
+  const result = spawnSync(BASH, [scriptPath, ...args], {
+    env,
+    cwd: ROOT,
+    encoding: 'utf-8',
+    timeout: SLOW_CLI_TIMEOUT,
+  });
+  return {
+    status: result.status ?? -1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
 
 // -----------------------------------------------------------------------
 // Schema validation
@@ -536,72 +554,61 @@ describe('end-to-end pipeline (binaries working together)', () => {
     const tmpHome = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gstack-e2e-'));
     try {
       const env = { ...process.env, GSTACK_HOME: tmpHome };
-      const { spawnSync } = require('child_process');
       const logBin = path.join(ROOT, 'bin', 'gstack-question-log');
       const devBin = path.join(ROOT, 'bin', 'gstack-developer-profile');
 
       for (let i = 0; i < 5; i++) {
-        const r = spawnSync(
-          logBin,
-          [
-            JSON.stringify({
-              skill: 'plan-ceo-review',
-              question_id: 'plan-ceo-review-mode',
-              question_summary: 'mode?',
-              user_choice: 'expand',
-              session_id: `s${i}`,
-              ts: `2026-04-0${i + 1}T10:00:00Z`,
-            }),
-          ],
-          { env, cwd: ROOT, encoding: 'utf-8' },
-        );
+        const r = runCli(logBin, [
+          JSON.stringify({
+            skill: 'plan-ceo-review',
+            question_id: 'plan-ceo-review-mode',
+            question_summary: 'mode?',
+            user_choice: 'expand',
+            session_id: `s${i}`,
+            ts: `2026-04-0${i + 1}T10:00:00Z`,
+          }),
+        ], env);
         expect(r.status).toBe(0);
       }
 
-      const derive = spawnSync(devBin, ['--derive'], { env, cwd: ROOT, encoding: 'utf-8' });
+      const derive = runCli(devBin, ['--derive'], env);
       expect(derive.status).toBe(0);
 
-      const profileOut = spawnSync(devBin, ['--profile'], { env, cwd: ROOT, encoding: 'utf-8' });
+      const profileOut = runCli(devBin, ['--profile'], env);
       const p = JSON.parse(profileOut.stdout);
       expect(p.inferred.sample_size).toBe(5);
       expect(p.inferred.values.scope_appetite).toBeGreaterThan(0.5);
     } finally {
       fs.rmSync(tmpHome, { recursive: true, force: true });
     }
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('preference blocks tune: write from inline-tool-output in full pipeline', () => {
     const tmpHome = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gstack-e2e-'));
     try {
       const env = { ...process.env, GSTACK_HOME: tmpHome };
-      const { spawnSync } = require('child_process');
       const prefBin = path.join(ROOT, 'bin', 'gstack-question-preference');
 
-      const r = spawnSync(
-        prefBin,
-        [
-          '--write',
-          JSON.stringify({ question_id: 'fake-id', preference: 'never-ask', source: 'inline-tool-output' }),
-        ],
-        { env, cwd: ROOT, encoding: 'utf-8' },
-      );
+      const r = runCli(prefBin, [
+        '--write',
+        JSON.stringify({ question_id: 'fake-id', preference: 'never-ask', source: 'inline-tool-output' }),
+      ], env);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('poisoning');
 
       // Verify no preference was written
-      const read = spawnSync(prefBin, ['--read'], { env, cwd: ROOT, encoding: 'utf-8' });
+      const read = runCli(prefBin, ['--read'], env);
       const prefs = JSON.parse(read.stdout);
       expect(prefs['fake-id']).toBeUndefined();
     } finally {
       fs.rmSync(tmpHome, { recursive: true, force: true });
     }
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('migration preserves sessions, builder-profile shim still works', () => {
     const tmpHome = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gstack-e2e-'));
     try {
       const env = { ...process.env, GSTACK_HOME: tmpHome };
-      const { spawnSync } = require('child_process');
       const devBin = path.join(ROOT, 'bin', 'gstack-developer-profile');
       const shimBin = path.join(ROOT, 'bin', 'gstack-builder-profile');
 
@@ -618,11 +625,11 @@ describe('end-to-end pipeline (binaries working together)', () => {
       );
 
       // Migrate
-      const m = spawnSync(devBin, ['--migrate'], { env, cwd: ROOT, encoding: 'utf-8' });
+      const m = runCli(devBin, ['--migrate'], env);
       expect(m.status).toBe(0);
 
       // Legacy shim should still return the same KEY: VALUE shape
-      const shimOut = spawnSync(shimBin, [], { env, cwd: ROOT, encoding: 'utf-8' });
+      const shimOut = runCli(shimBin, [], env);
       expect(shimOut.status).toBe(0);
       expect(shimOut.stdout).toContain('SESSION_COUNT: 3');
       expect(shimOut.stdout).toContain('TIER: welcome_back');
@@ -630,7 +637,7 @@ describe('end-to-end pipeline (binaries working together)', () => {
     } finally {
       fs.rmSync(tmpHome, { recursive: true, force: true });
     }
-  });
+  }, SLOW_CLI_TIMEOUT);
 });
 
 function findAllTemplates(): string[] {

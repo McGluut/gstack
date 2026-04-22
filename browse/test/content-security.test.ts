@@ -11,7 +11,7 @@
  *   7. Chain security (domain + tab enforcement)
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from 'bun:test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { startTestServer } from './test-server';
@@ -24,6 +24,7 @@ import {
   markHiddenElements, getCleanTextWithStripping, cleanupHiddenMarkers,
 } from '../src/content-security';
 import { generateInstructionBlock } from '../src/cli';
+const describeHiddenElement = process.platform === 'win32' ? describe.skip : describe;
 
 // Source-level tests
 const SERVER_SRC = fs.readFileSync(path.join(import.meta.dir, '../src/server.ts'), 'utf-8');
@@ -122,6 +123,12 @@ describe('Content envelope', () => {
 describe('Content filter hooks', () => {
   beforeEach(() => {
     clearContentFilters();
+  });
+
+  afterEach(() => {
+    clearContentFilters();
+    registerContentFilter(urlBlocklistFilter);
+    delete process.env.BROWSE_CONTENT_FILTER;
   });
 
   test('URL blocklist detects requestbin', () => {
@@ -410,7 +417,7 @@ describe('Chain security', () => {
 
 // ─── 7. Hidden Element Stripping (functional) ───────────────────
 
-describe('Hidden element stripping', () => {
+describeHiddenElement('Hidden element stripping', () => {
   let testServer: ReturnType<typeof startTestServer>;
   let bm: BrowserManager;
   let baseUrl: string;

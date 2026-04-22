@@ -133,7 +133,7 @@ describe('parent-process watchdog (v0.18.1.0)', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'watchdog-default-'));
 
     // Spawn a real, short-lived "parent" that the watchdog will poll.
-    parentProc = spawn(['sleep', '60'], { stdio: ['ignore', 'ignore', 'ignore'] });
+    parentProc = spawn([process.execPath, '-e', 'setTimeout(() => {}, 60000)'], { stdio: ['ignore', 'ignore', 'ignore'] });
     const parentPid = parentProc.pid!;
 
     // Default headless: no BROWSE_HEADED, real parent PID — watchdog active.

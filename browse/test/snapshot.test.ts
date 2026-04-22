@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Snapshot command tests
  *
  * Tests: accessibility tree snapshots, ref-based element selection,
@@ -12,6 +12,7 @@ import { handleReadCommand as _handleReadCommand } from '../src/read-commands';
 import { handleWriteCommand as _handleWriteCommand } from '../src/write-commands';
 import { handleMetaCommand } from '../src/meta-commands';
 import * as fs from 'fs';
+import { isChromiumLaunchable } from './helpers/playwright-availability';
 
 const handleReadCommand = (cmd: string, args: string[], b: BrowserManager) =>
   _handleReadCommand(cmd, args, b.getActiveSession());
@@ -22,8 +23,11 @@ let testServer: ReturnType<typeof startTestServer>;
 let bm: BrowserManager;
 let baseUrl: string;
 const shutdown = async () => {};
+const CHROMIUM_AVAILABLE = isChromiumLaunchable();
+const browserTest = CHROMIUM_AVAILABLE ? test : test.skip;
 
 beforeAll(async () => {
+  if (!CHROMIUM_AVAILABLE) return;
   testServer = startTestServer(0);
   baseUrl = testServer.url;
 
@@ -32,14 +36,15 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  if (!CHROMIUM_AVAILABLE) return;
   try { testServer.server.stop(); } catch {}
   setTimeout(() => process.exit(0), 500);
 });
 
-// ─── Snapshot Output ────────────────────────────────────────────
+// â”€â”€â”€ Snapshot Output â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Snapshot', () => {
-  test('snapshot returns accessibility tree with refs', async () => {
+  browserTest('snapshot returns accessibility tree with refs', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', [], bm, shutdown);
     expect(result).toContain('@e');
@@ -49,7 +54,7 @@ describe('Snapshot', () => {
     expect(result).toContain('[link]');
   });
 
-  test('snapshot -i returns only interactive elements', async () => {
+  browserTest('snapshot -i returns only interactive elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     expect(result).toContain('[button]');
@@ -59,7 +64,7 @@ describe('Snapshot', () => {
     expect(result).not.toContain('[heading]');
   });
 
-  test('snapshot -c returns compact output', async () => {
+  browserTest('snapshot -c returns compact output', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const full = await handleMetaCommand('snapshot', [], bm, shutdown);
     const compact = await handleMetaCommand('snapshot', ['-c'], bm, shutdown);
@@ -69,7 +74,7 @@ describe('Snapshot', () => {
     expect(compactLines).toBeLessThanOrEqual(fullLines);
   });
 
-  test('snapshot -d 2 limits depth', async () => {
+  browserTest('snapshot -d 2 limits depth', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const shallow = await handleMetaCommand('snapshot', ['-d', '2'], bm, shutdown);
     const deep = await handleMetaCommand('snapshot', [], bm, shutdown);
@@ -77,7 +82,7 @@ describe('Snapshot', () => {
     expect(shallow.split('\n').length).toBeLessThanOrEqual(deep.split('\n').length);
   });
 
-  test('snapshot -s "#main" scopes to selector', async () => {
+  browserTest('snapshot -s "#main" scopes to selector', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const scoped = await handleMetaCommand('snapshot', ['-s', '#main'], bm, shutdown);
     // Should contain elements inside #main
@@ -87,7 +92,7 @@ describe('Snapshot', () => {
     expect(scoped).not.toContain('"Internal Link"');
   });
 
-  test('snapshot on page with no interactive elements', async () => {
+  browserTest('snapshot on page with no interactive elements', async () => {
     // Navigate to about:blank which has minimal content
     await handleWriteCommand('goto', [baseUrl + '/basic.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
@@ -95,7 +100,7 @@ describe('Snapshot', () => {
     expect(result).toContain('[link]');
   });
 
-  test('second snapshot generates fresh refs', async () => {
+  browserTest('second snapshot generates fresh refs', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap1 = await handleMetaCommand('snapshot', [], bm, shutdown);
     const snap2 = await handleMetaCommand('snapshot', [], bm, shutdown);
@@ -105,10 +110,10 @@ describe('Snapshot', () => {
   });
 });
 
-// ─── Ref-Based Interaction ──────────────────────────────────────
+// â”€â”€â”€ Ref-Based Interaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Ref resolution', () => {
-  test('click @ref works after snapshot', async () => {
+  browserTest('click @ref works after snapshot', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Find a button ref
@@ -121,7 +126,7 @@ describe('Ref resolution', () => {
     expect(result).toContain('Clicked');
   });
 
-  test('fill @ref works after snapshot', async () => {
+  browserTest('fill @ref works after snapshot', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Find a textbox ref (Username)
@@ -134,7 +139,7 @@ describe('Ref resolution', () => {
     expect(result).toContain('Filled');
   });
 
-  test('hover @ref works after snapshot', async () => {
+  browserTest('hover @ref works after snapshot', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     const linkLine = snap.split('\n').find(l => l.includes('[link]'));
@@ -145,7 +150,7 @@ describe('Ref resolution', () => {
     expect(result).toContain('Hovered');
   });
 
-  test('html @ref returns innerHTML', async () => {
+  browserTest('html @ref returns innerHTML', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', [], bm, shutdown);
     // Find a heading ref
@@ -157,7 +162,7 @@ describe('Ref resolution', () => {
     expect(result).toContain('Snapshot Test');
   });
 
-  test('css @ref returns computed CSS', async () => {
+  browserTest('css @ref returns computed CSS', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', [], bm, shutdown);
     const headingLine = snap.split('\n').find(l => l.includes('[heading]') && l.includes('"Snapshot Test"'));
@@ -167,7 +172,7 @@ describe('Ref resolution', () => {
     expect(result).toBeTruthy();
   });
 
-  test('attrs @ref returns element attributes', async () => {
+  browserTest('attrs @ref returns element attributes', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     const textboxLine = snap.split('\n').find(l => l.includes('[textbox]') && l.includes('"Username"'));
@@ -178,13 +183,13 @@ describe('Ref resolution', () => {
   });
 });
 
-// ─── Ref Invalidation ───────────────────────────────────────────
+// â”€â”€â”€ Ref Invalidation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Ref invalidation', () => {
-  test('stale ref after goto returns clear error', async () => {
+  browserTest('stale ref after goto returns clear error', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
-    // Navigate away — should invalidate refs
+    // Navigate away â€” should invalidate refs
     await handleWriteCommand('goto', [baseUrl + '/basic.html'], bm);
     // Try to use old ref
     try {
@@ -196,7 +201,7 @@ describe('Ref invalidation', () => {
     }
   });
 
-  test('refs cleared on page navigation', async () => {
+  browserTest('refs cleared on page navigation', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     expect(bm.getRefCount()).toBeGreaterThan(0);
@@ -207,17 +212,17 @@ describe('Ref invalidation', () => {
 });
 
 
-// ─── Ref Staleness Detection ────────────────────────────────────
+// â”€â”€â”€ Ref Staleness Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Ref staleness detection', () => {
-  test('ref metadata stores role and name', async () => {
+  browserTest('ref metadata stores role and name', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Refs should exist with metadata
     expect(bm.getRefCount()).toBeGreaterThan(0);
   });
 
-  test('stale ref after DOM removal gives descriptive error', async () => {
+  browserTest('stale ref after DOM removal gives descriptive error', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Find a button ref
@@ -230,7 +235,7 @@ describe('Ref staleness detection', () => {
     // Remove the button from DOM (simulates SPA re-render)
     await handleReadCommand('js', ['document.querySelector("button[type=submit]").remove()'], bm);
     
-    // Try to click — should get descriptive staleness error
+    // Try to click â€” should get descriptive staleness error
     try {
       await handleWriteCommand('click', [ref], bm);
       expect(true).toBe(false); // Should not reach here
@@ -242,23 +247,23 @@ describe('Ref staleness detection', () => {
     }
   });
 
-  test('valid ref still resolves normally after staleness check', async () => {
+  browserTest('valid ref still resolves normally after staleness check', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     const linkLine = snap.split('\n').find(l => l.includes('[link]'));
     expect(linkLine).toBeDefined();
     const refMatch = linkLine!.match(/@(e\d+)/);
     const ref = `@${refMatch![1]}`;
-    // Should work normally — element still exists
+    // Should work normally â€” element still exists
     const result = await handleWriteCommand('hover', [ref], bm);
     expect(result).toContain('Hovered');
   });
 });
 
-// ─── Snapshot Diffing ──────────────────────────────────────────
+// â”€â”€â”€ Snapshot Diffing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Snapshot diff', () => {
-  test('first snapshot -D stores baseline', async () => {
+  browserTest('first snapshot -D stores baseline', async () => {
     // Clear any previous snapshot
     bm.setLastSnapshot(null);
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
@@ -267,7 +272,7 @@ describe('Snapshot diff', () => {
     expect(result).toContain('baseline');
   });
 
-  test('snapshot -D shows diff after change', async () => {
+  browserTest('snapshot -D shows diff after change', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     // Take first snapshot
     await handleMetaCommand('snapshot', [], bm, shutdown);
@@ -281,7 +286,7 @@ describe('Snapshot diff', () => {
     expect(diff).toContain('current snapshot');
   });
 
-  test('snapshot -D with identical page shows no changes', async () => {
+  browserTest('snapshot -D with identical page shows no changes', async () => {
     await handleWriteCommand('goto', [baseUrl + '/basic.html'], bm);
     await handleMetaCommand('snapshot', [], bm, shutdown);
     const diff = await handleMetaCommand('snapshot', ['-D'], bm, shutdown);
@@ -293,10 +298,10 @@ describe('Snapshot diff', () => {
   });
 });
 
-// ─── Annotated Screenshots ─────────────────────────────────────
+// â”€â”€â”€ Annotated Screenshots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Annotated screenshots', () => {
-  test('snapshot -a creates annotated screenshot', async () => {
+  browserTest('snapshot -a creates annotated screenshot', async () => {
     const screenshotPath = '/tmp/browse-test-annotated.png';
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-a', '-o', screenshotPath], bm, shutdown);
@@ -308,7 +313,7 @@ describe('Annotated screenshots', () => {
     fs.unlinkSync(screenshotPath);
   });
 
-  test('snapshot -a uses default path', async () => {
+  browserTest('snapshot -a uses default path', async () => {
     const defaultPath = '/tmp/browse-annotated.png';
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-a'], bm, shutdown);
@@ -317,7 +322,7 @@ describe('Annotated screenshots', () => {
     fs.unlinkSync(defaultPath);
   });
 
-  test('snapshot -a -i only annotates interactive', async () => {
+  browserTest('snapshot -a -i only annotates interactive', async () => {
     const screenshotPath = '/tmp/browse-test-annotated-i.png';
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i', '-a', '-o', screenshotPath], bm, shutdown);
@@ -327,7 +332,7 @@ describe('Annotated screenshots', () => {
     if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
   });
 
-  test('annotation overlays are cleaned up', async () => {
+  browserTest('annotation overlays are cleaned up', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     await handleMetaCommand('snapshot', ['-a'], bm, shutdown);
     // Check that overlays are removed
@@ -338,10 +343,10 @@ describe('Annotated screenshots', () => {
   });
 });
 
-// ─── Cursor-Interactive ────────────────────────────────────────
+// â”€â”€â”€ Cursor-Interactive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Cursor-interactive', () => {
-  test('snapshot -C finds cursor:pointer elements', async () => {
+  browserTest('snapshot -C finds cursor:pointer elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     expect(result).toContain('cursor-interactive');
@@ -349,19 +354,19 @@ describe('Cursor-interactive', () => {
     expect(result).toContain('cursor:pointer');
   });
 
-  test('snapshot -C includes onclick elements', async () => {
+  browserTest('snapshot -C includes onclick elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     expect(result).toContain('onclick');
   });
 
-  test('snapshot -C includes tabindex elements', async () => {
+  browserTest('snapshot -C includes tabindex elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     expect(result).toContain('tabindex');
   });
 
-  test('@c ref is clickable', async () => {
+  browserTest('@c ref is clickable', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     // Find a @c ref
@@ -375,14 +380,14 @@ describe('Cursor-interactive', () => {
     }
   });
 
-  test('snapshot -C on page with no cursor elements', async () => {
+  browserTest('snapshot -C on page with no cursor elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/empty.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     // Should not contain cursor-interactive section
     expect(result).not.toContain('cursor-interactive');
   });
 
-  test('snapshot -i -C combines both modes', async () => {
+  browserTest('snapshot -i -C combines both modes', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i', '-C'], bm, shutdown);
     // Should have interactive elements (button, link)
@@ -392,7 +397,7 @@ describe('Cursor-interactive', () => {
     expect(result).toContain('cursor-interactive');
   });
 
-  test('snapshot -i alone also includes cursor-interactive elements', async () => {
+  browserTest('snapshot -i alone also includes cursor-interactive elements', async () => {
     await handleWriteCommand('goto', [baseUrl + '/cursor-interactive.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // -i now auto-enables -C
@@ -403,10 +408,10 @@ describe('Cursor-interactive', () => {
   });
 });
 
-// ─── Dropdown/Popover Detection ─────────────────────────────────
+// â”€â”€â”€ Dropdown/Popover Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Dropdown/popover detection', () => {
-  test('snapshot -i auto-enables cursor scan and finds dropdown items', async () => {
+  browserTest('snapshot -i auto-enables cursor scan and finds dropdown items', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Should find standard interactive elements
@@ -420,27 +425,27 @@ describe('Dropdown/popover detection', () => {
     expect(result).toContain('Bob Smith');
   });
 
-  test('dropdown items in floating container are tagged as popover-child', async () => {
+  browserTest('dropdown items in floating container are tagged as popover-child', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     expect(result).toContain('popover-child');
   });
 
-  test('dropdown items with role="option" in portal are captured', async () => {
+  browserTest('dropdown items with role="option" in portal are captured', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
-    // Dave Wilson has role="option" — should be captured even though it has a role
+    // Dave Wilson has role="option" â€” should be captured even though it has a role
     expect(result).toContain('Dave Wilson');
   });
 
-  test('static text in dropdown without interactivity is NOT captured', async () => {
+  browserTest('static text in dropdown without interactivity is NOT captured', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // "No results? Try a different search." has no cursor:pointer, no onclick, no tabindex
     expect(result).not.toContain('No results');
   });
 
-  test('@c ref from dropdown is clickable', async () => {
+  browserTest('@c ref from dropdown is clickable', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const snap = await handleMetaCommand('snapshot', ['-i'], bm, shutdown);
     // Find a @c ref for Alice
@@ -452,7 +457,7 @@ describe('Dropdown/popover detection', () => {
     expect(result).toContain('Clicked');
   });
 
-  test('snapshot -C still works standalone without -i', async () => {
+  browserTest('snapshot -C still works standalone without -i', async () => {
     await handleWriteCommand('goto', [baseUrl + '/dropdown.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-C'], bm, shutdown);
     expect(result).toContain('cursor-interactive');
@@ -462,10 +467,10 @@ describe('Dropdown/popover detection', () => {
   });
 });
 
-// ─── Snapshot Error Paths ───────────────────────────────────────
+// â”€â”€â”€ Snapshot Error Paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Snapshot errors', () => {
-  test('unknown flag throws', async () => {
+  browserTest('unknown flag throws', async () => {
     try {
       await handleMetaCommand('snapshot', ['--bogus'], bm, shutdown);
       expect(true).toBe(false);
@@ -474,7 +479,7 @@ describe('Snapshot errors', () => {
     }
   });
 
-  test('-d without number throws', async () => {
+  browserTest('-d without number throws', async () => {
     try {
       await handleMetaCommand('snapshot', ['-d'], bm, shutdown);
       expect(true).toBe(false);
@@ -483,7 +488,7 @@ describe('Snapshot errors', () => {
     }
   });
 
-  test('-s without selector throws', async () => {
+  browserTest('-s without selector throws', async () => {
     try {
       await handleMetaCommand('snapshot', ['-s'], bm, shutdown);
       expect(true).toBe(false);
@@ -492,7 +497,7 @@ describe('Snapshot errors', () => {
     }
   });
 
-  test('-s with nonexistent selector throws', async () => {
+  browserTest('-s with nonexistent selector throws', async () => {
     await handleWriteCommand('goto', [baseUrl + '/basic.html'], bm);
     try {
       await handleMetaCommand('snapshot', ['-s', '#nonexistent-element-12345'], bm, shutdown);
@@ -502,7 +507,7 @@ describe('Snapshot errors', () => {
     }
   });
 
-  test('-o without path throws', async () => {
+  browserTest('-o without path throws', async () => {
     try {
       await handleMetaCommand('snapshot', ['-o'], bm, shutdown);
       expect(true).toBe(false);
@@ -512,10 +517,10 @@ describe('Snapshot errors', () => {
   });
 });
 
-// ─── Combined Flags ─────────────────────────────────────────────
+// â”€â”€â”€ Combined Flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('Snapshot combined flags', () => {
-  test('-i -c -d 2 combines all filters', async () => {
+  browserTest('-i -c -d 2 combines all filters', async () => {
     await handleWriteCommand('goto', [baseUrl + '/snapshot.html'], bm);
     const result = await handleMetaCommand('snapshot', ['-i', '-c', '-d', '2'], bm, shutdown);
     // Should be filtered to interactive, compact, shallow
@@ -525,7 +530,7 @@ describe('Snapshot combined flags', () => {
     expect(result).not.toContain('[heading]');
   });
 
-  test('closetab last tab auto-creates new', async () => {
+  browserTest('closetab last tab auto-creates new', async () => {
     // Get down to 1 tab
     const tabs = await bm.getTabListWithTitles();
     for (let i = 1; i < tabs.length; i++) {
@@ -539,3 +544,4 @@ describe('Snapshot combined flags', () => {
     expect(bm.getTabCount()).toBe(1);
   });
 });
+

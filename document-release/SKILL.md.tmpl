@@ -35,6 +35,13 @@ in the project is accurate, up to date, and written in a friendly, user-forward 
 You are mostly automated. Make obvious factual updates directly. Stop and ask only for risky or
 subjective decisions.
 
+## Quick Contract
+
+- Prerequisites: a feature branch, readable repo docs, and a valid diff against the base branch. `gh` or `glab` is only needed if a PR/MR body should be updated.
+- Outputs: updated documentation files, one docs commit when changes were needed, and an optional PR/MR body refresh.
+- Stop when: a version bump, narrative rewrite, section removal, new TODO capture, or another risky documentation decision needs user judgment.
+- If unavailable: if PR/MR tooling or a writable temp path is unavailable, still finish the repo-local docs pass and report the skipped PR/MR-body update explicitly.
+
 **Only stop for:**
 - Risky/questionable doc changes (narrative, philosophy, security, removals, large rewrites)
 - VERSION bump decision (if not already bumped)
@@ -210,7 +217,7 @@ After auditing each file individually, do a cross-doc consistency pass:
 
 ## Step 7: TODOS.md Cleanup
 
-This is a second pass that complements `/ship`'s Step 5.5. Read `review/TODOS-format.md` (if
+This is a second pass that complements `/ship`'s Step 5.5. Read `.claude/skills/review/TODOS-format.md` (if
 available) for the canonical TODO item format.
 
 If TODOS.md does not exist, skip this step.
@@ -297,16 +304,24 @@ git push
 
 **PR/MR body update (idempotent, race-safe):**
 
+Create a portable temp path first:
+
+```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+PR_BODY_FILE="$TMP_ROOT/gstack-pr-body-$$.md"
+```
+
 1. Read the existing PR/MR body into a PID-unique tempfile (use the platform detected in Step 0):
 
 **If GitHub:**
 ```bash
-gh pr view --json body -q .body > /tmp/gstack-pr-body-$$.md
+gh pr view --json body -q .body > "$PR_BODY_FILE"
 ```
 
 **If GitLab:**
 ```bash
-glab mr view -F json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" > /tmp/gstack-pr-body-$$.md
+glab mr view -F json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" > "$PR_BODY_FILE"
 ```
 
 2. If the tempfile already contains a `## Documentation` section, replace that section with the
@@ -320,11 +335,11 @@ glab mr view -F json 2>/dev/null | python3 -c "import sys,json; print(json.load(
 
 **If GitHub:**
 ```bash
-gh pr edit --body-file /tmp/gstack-pr-body-$$.md
+gh pr edit --body-file "$PR_BODY_FILE"
 ```
 
 **If GitLab:**
-Read the contents of `/tmp/gstack-pr-body-$$.md` using the Read tool, then pass it to `glab mr update` using a heredoc to avoid shell metacharacter issues:
+Read the contents of `$PR_BODY_FILE` using the Read tool, then pass it to `glab mr update` using a heredoc to avoid shell metacharacter issues:
 ```bash
 glab mr update -d "$(cat <<'MRBODY'
 <paste the file contents here>
@@ -335,7 +350,7 @@ MRBODY
 5. Clean up the tempfile:
 
 ```bash
-rm -f /tmp/gstack-pr-body-$$.md
+rm -f "$PR_BODY_FILE"
 ```
 
 6. If `gh pr view` / `glab mr view` fails (no PR/MR exists): skip with message "No PR/MR found — skipping body update."

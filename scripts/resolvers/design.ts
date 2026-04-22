@@ -804,7 +804,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 \`\`\`
 
@@ -812,8 +812,9 @@ If \`DESIGN_NOT_AVAILABLE\`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (\`DESIGN_SKETCH\`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If \`BROWSE_NOT_AVAILABLE\`: use \`open file://...\` instead of \`$B goto\` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If \`BROWSE_NOT_AVAILABLE\`: surface the board URL or file path explicitly. If
+\`~/.claude/skills/gstack/bin/gstack-open-url\` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If \`DESIGN_READY\`: the design binary is available for visual mockup generation.
 Commands:
@@ -879,8 +880,9 @@ create and serve the comparison board:
 $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DESIGN_DIR/variant-C.png" --output "$_DESIGN_DIR/design-board.html" --serve
 \`\`\`
 
-This opens the board in the user's default browser and blocks until feedback is
-received. Read stdout for the structured JSON result. No polling needed.
+This serves the board and usually opens it automatically. If no browser helper is
+available, surface the board URL manually and continue. Read stdout for the structured
+JSON result. No polling needed.
 
 If \`$D serve\` is not available or fails, fall back to AskUserQuestion:
 "I've opened the design board. Which variant do you prefer? Any feedback?"
@@ -916,8 +918,8 @@ $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DES
 \`\`\`
 
 This command generates the board HTML, starts an HTTP server on a random port,
-and opens it in the user's default browser. **Run it in the background** with \`&\`
-because the server needs to stay running while the user interacts with the board.
+and usually opens it in the user's default browser. **Run it in the background** with
+\`&\` because the server needs to stay running while the user interacts with the board.
 
 Parse the port from stderr output: \`SERVE_STARTED: port=XXXXX\`. You need this
 for the board URL and for reloading during regeneration cycles.
@@ -925,9 +927,9 @@ for the board URL and for reloading during regeneration cycles.
 **PRIMARY WAIT: AskUserQuestion with board URL**
 
 After the board is serving, use AskUserQuestion to wait for the user. Include the
-board URL so they can click it if they lost the browser tab:
+board URL so they can click it if automatic opening failed or they lost the browser tab:
 
-"I've opened a comparison board with the design variants:
+"I've started a comparison board with the design variants:
 http://127.0.0.1:<PORT>/ — Rate them, leave comments, remix
 elements you like, and click Submit when you're done. Let me know when you've
 submitted your feedback (or paste your preferences here). If you clicked

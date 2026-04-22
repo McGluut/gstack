@@ -1,5 +1,7 @@
 # gstack
 
+Portable fork of [garrytan/gstack](https://github.com/garrytan/gstack) for off-the-shelf use across hosts, shells, and agent runtimes. Original workflow and methodology credit belongs to Garry Tan's gstack; this fork claims the portability and distribution hardening.
+
 > "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
 
 When I heard Karpathy say this, I wanted to find out how. How does one person ship like a team of twenty? Peter Steinberger built [OpenClaw](https://github.com/openclaw/openclaw) — 247K GitHub stars — essentially solo with AI agents. The revolution is here. A single builder with the right tooling can move faster than a traditional team.
@@ -31,6 +33,27 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 - **First-time Claude Code users** — structured roles instead of a blank prompt
 - **Tech leads and staff engineers** — rigorous review, QA, and release automation on every PR
 
+## Why This Fork Exists
+
+This fork keeps gstack's workflow model, but hardens it for off-the-shelf use across hosts, shells, and install layouts.
+
+It is better than upstream if you want:
+- fewer hidden maintainer-home and local-environment assumptions
+- explicit prerequisites, stop conditions, and output contracts on the skills themselves
+- honest degradation when a browser, model, helper binary, or state directory is unavailable
+- portable state and temp-root handling instead of one hardcoded home-directory layout
+- a default verification path that completes reliably, including on Windows
+
+This is not a claim that upstream is wrong. It is a claim that this fork is optimized for portability, explicitness, and installability without any private maintainer context.
+
+## What Changed In This Fork
+
+- Skills now surface prerequisites, outputs, stop conditions, and fallback behavior near the top instead of hiding them deep in the prompt.
+- Helper paths and shared references no longer assume a maintainer-home layout or a checkout-local `./bin/...` workflow.
+- State roots, temp roots, and helper discovery degrade explicitly instead of silently assuming one machine shape.
+- The default verification lane is productized for off-the-shelf use and completes reliably through `bun test`.
+- Agent-facing repo docs now explain what to assume and what not to assume without relying on any external continuity log.
+
 ## Quick start
 
 1. Install gstack (30 seconds — see below)
@@ -48,7 +71,7 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 
 Open Claude Code and paste this. Claude does the rest.
 
-> Install gstack: run **`git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup`** then add a "gstack" section to CLAUDE.md that says to use the /browse skill from gstack for all web browsing, never use mcp\_\_claude-in-chrome\_\_\* tools, and lists the available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex, /cso, /autoplan, /plan-devex-review, /devex-review, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn. Then ask the user if they also want to add gstack to the current project so teammates get it.
+> Install gstack: run **`git clone --single-branch --depth 1 https://github.com/mcgluut/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup`** then add a "gstack" section to CLAUDE.md that says to use the /browse skill from gstack for all web browsing, never use mcp\_\_claude-in-chrome\_\_\* tools, and prefer the current installed gstack skill set from this repo, including `/open-gstack-browser`, `/pair-agent`, `/benchmark-models`, `/make-pdf`, `/context-save`, `/context-restore`, `/plan-tune`, and `/health`. Then ask the user if they also want to add gstack to the current project so teammates get it.
 
 ### Step 2: Team mode — auto-update for shared repos (recommended)
 
@@ -67,7 +90,7 @@ Swap `required` for `optional` if you'd rather nudge teammates than block them.
 OpenClaw spawns Claude Code sessions via ACP, so every gstack skill just works
 when Claude Code has gstack installed. Paste this to your OpenClaw agent:
 
-> Install gstack: run `git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` to install gstack for Claude Code. Then add a "Coding Tasks" section to AGENTS.md that says: when spawning Claude Code sessions for coding work, tell the session to use gstack skills. Include these examples — security audit: "Load gstack. Run /cso", code review: "Load gstack. Run /review", QA test a URL: "Load gstack. Run /qa https://...", build a feature end-to-end: "Load gstack. Run /autoplan, implement the plan, then run /ship", plan before building: "Load gstack. Run /office-hours then /autoplan. Save the plan, don't implement."
+> Install gstack: run `git clone --single-branch --depth 1 https://github.com/mcgluut/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` to install gstack for Claude Code. Then add a "Coding Tasks" section to AGENTS.md that says: when spawning Claude Code sessions for coding work, tell the session to use gstack skills. Include these examples — security audit: "Load gstack. Run /cso", code review: "Load gstack. Run /review", QA test a URL: "Load gstack. Run /qa https://...", build a feature end-to-end: "Load gstack. Run /autoplan, implement the plan, then run /ship", plan before building: "Load gstack. Run /office-hours then /autoplan. Save the plan, don't implement."
 
 **After setup, just talk to your OpenClaw agent naturally:**
 
@@ -105,7 +128,7 @@ gstack works on 10 AI coding agents, not just Claude. Setup auto-detects which
 agents you have installed:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gstack
+git clone --single-branch --depth 1 https://github.com/mcgluut/gstack.git ~/gstack
 cd ~/gstack && ./setup
 ```
 

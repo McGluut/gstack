@@ -43,6 +43,13 @@ hooks:
 
 # Systematic Debugging
 
+## Quick Contract
+
+- Prerequisites: a reproducible symptom or enough evidence to form a testable root-cause hypothesis, plus read access to the affected code and history.
+- Outputs: a root-cause hypothesis, evidence-backed debugging report, and only then a bounded fix if the hypothesis is confirmed.
+- Stop when: the bug cannot be reproduced, three hypotheses fail, or the root cause stays architectural or ambiguous enough to need user direction.
+- If unavailable: if prior learnings, freeze hooks, or WebSearch are unavailable, continue with local code tracing and state which supporting surface was skipped.
+
 ## Iron Law
 
 **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**

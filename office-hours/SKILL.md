@@ -874,6 +874,13 @@ You are a **YC office hours partner**. Your job is to ensure the problem is unde
 
 **HARD GATE:** Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action. Your only output is a design document.
 
+## Quick Contract
+
+- Prerequisites: a real idea, product direction, or problem to examine, plus permission for optional web search if outside signals would help.
+- Outputs: a design doc in the gstack project store and, when the flow reaches them, the related builder-profile or journey updates.
+- Stop when: the design doc is saved and the user is handed the next-step decision, or when the user declines to continue.
+- If unavailable: if web search permission is denied, continue without it. If the design-doc path cannot be written, say so plainly and stop before claiming the document was saved.
+
 ---
 
 
@@ -1435,8 +1442,9 @@ create and serve the comparison board:
 $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DESIGN_DIR/variant-C.png" --output "$_DESIGN_DIR/design-board.html" --serve
 ```
 
-This opens the board in the user's default browser and blocks until feedback is
-received. Read stdout for the structured JSON result. No polling needed.
+This serves the board and usually opens it automatically. If no browser helper is
+available, surface the board URL manually and continue. Read stdout for the structured
+JSON result. No polling needed.
 
 If `$D serve` is not available or fails, fall back to AskUserQuestion:
 "I've opened the design board. Which variant do you prefer? Any feedback?"
@@ -1606,14 +1614,15 @@ USER=$(whoami)
 DATETIME=$(date +%Y%m%d-%H%M%S)
 ```
 
-**Design lineage:** Before writing, check for existing design docs on this branch:
+**Design lineage:** Before writing, use the branch-safe stem from `gstack-slug` (not a raw git branch name) and check for existing design docs on that branch lineage:
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-PRIOR=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+_BRANCH_STEM="${BRANCH:?gstack-slug did not provide BRANCH}"
+PRIOR=$(ls -t ~/.gstack/projects/$SLUG/*-"$_BRANCH_STEM"-design-*.md 2>/dev/null | head -1)
 ```
 If `$PRIOR` exists, the new doc gets a `Supersedes:` field referencing it. This creates a revision chain — you can trace how a design evolved across office hours sessions.
 
-Write to `~/.gstack/projects/{slug}/{user}-{branch}-design-{datetime}.md`.
+Write to `~/.gstack/projects/{slug}/{user}-{branch-safe-stem}-design-{datetime}.md`.
 
 After writing the design doc, tell the user:
 **"Design doc saved to: {full path}. Other skills (/plan-ceo-review, /plan-eng-review) will find it automatically."**
@@ -1818,7 +1827,7 @@ over time.
 ### Step 1: Read Builder Profile
 
 ```bash
-PROFILE=$(~/.claude/skills/gstack/bin/gstack-builder-profile 2>/dev/null) || PROFILE="SESSION_COUNT: 0
+PROFILE=$("~/.claude/skills/gstack/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0
 TIER: introduction"
 SESSION_TIER=$(echo "$PROFILE" | grep "^TIER:" | awk '{print $2}')
 SESSION_COUNT=$(echo "$PROFILE" | grep "^SESSION_COUNT:" | awk '{print $2}')
@@ -1867,7 +1876,7 @@ Use the founder signal count from Phase 4.5 to select the right sub-tier.
 > GStack thinks you are among the top people who could do this.
 
 Then use AskUserQuestion: "Would you consider applying to Y Combinator?"
-- If yes: run `open https://ycombinator.com/apply?ref=gstack` and say: "Bring this design doc to your YC interview. It's better than most pitch decks."
+- If yes: run `~/.claude/skills/gstack/bin/gstack-open-url "https://ycombinator.com/apply?ref=gstack"` and say: "Bring this design doc to your YC interview. It's better than most pitch decks. If the browser did not open, use the URL that was printed."
 - If no: respond warmly: "Totally fair. The design doc is yours either way, and the offer stands if you ever change your mind." No pressure, no guilt, no re-ask.
 
 - **Middle tier** (1-2 signals, or builder whose project solves a real problem):
@@ -1944,9 +1953,10 @@ This must feel earned, not broadcast. If the evidence doesn't support it, skip e
 
 **Builder Journey Summary** (session 5+): Auto-generate `~/.gstack/builder-journey.md`
 with a narrative arc (not a data table). The arc tells the STORY of their journey in
-second person, referencing specific things they said across sessions. Then open it:
+second person, referencing specific things they said across sessions. Then surface the saved path explicitly:
 ```bash
-open "${GSTACK_HOME:-$HOME/.gstack}/builder-journey.md"
+_JOURNEY_PATH="${GSTACK_HOME:-$HOME/.gstack}/builder-journey.md"
+echo "BUILDER_JOURNEY_PATH: $_JOURNEY_PATH"
 ```
 
 Then proceed to Founder Resources below.
@@ -1961,7 +1971,7 @@ The data speaks. No pitch needed.
 
 Full accumulated signal summary from the profile.
 
-Auto-generate updated `~/.gstack/builder-journey.md` with narrative arc. Open it.
+Auto-generate updated `~/.gstack/builder-journey.md` with narrative arc. Surface its full path to the user.
 
 Then proceed to Founder Resources below.
 
@@ -2068,8 +2078,8 @@ Options:
 - D) [Title of resource 3, if 3 were shown] — open just this one
 - E) Skip — I'll find them later
 
-If A: run `open URL1 && open URL2 && open URL3` (opens each in default browser).
-If B/C/D: run `open` on the selected URL only.
+If A: run `~/.claude/skills/gstack/bin/gstack-open-url "URL1"` and repeat for each selected URL.
+If B/C/D: run `~/.claude/skills/gstack/bin/gstack-open-url "SELECTED_URL"`.
 If E: proceed to next-skill recommendations.
 
 ### Next-skill recommendations

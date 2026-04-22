@@ -28,6 +28,16 @@ function setupFakeGstackRoot(tmpHome: string): string {
   return gstackDir;
 }
 
+function tryCreateSymlink(target: string, linkPath: string): boolean {
+  try {
+    fs.symlinkSync(target, linkPath);
+    return true;
+  } catch (error: any) {
+    if (process.platform === 'win32' && error?.code === 'EPERM') return false;
+    throw error;
+  }
+}
+
 describe('migration v1.1.3.0 — checkpoint ownership guard', () => {
   let tmpHome: string;
 
@@ -44,7 +54,7 @@ describe('migration v1.1.3.0 — checkpoint ownership guard', () => {
     const skillsDir = path.join(tmpHome, '.claude', 'skills');
     const gstackCheckpoint = path.join(skillsDir, 'gstack', 'checkpoint');
     const topLevel = path.join(skillsDir, 'checkpoint');
-    fs.symlinkSync(gstackCheckpoint, topLevel);
+    if (!tryCreateSymlink(gstackCheckpoint, topLevel)) return;
 
     const result = runMigration(tmpHome);
     expect(result.exitCode).toBe(0);
@@ -60,7 +70,7 @@ describe('migration v1.1.3.0 — checkpoint ownership guard', () => {
     const gstackSKILL = path.join(skillsDir, 'gstack', 'checkpoint', 'SKILL.md');
     const topLevel = path.join(skillsDir, 'checkpoint');
     fs.mkdirSync(topLevel, { recursive: true });
-    fs.symlinkSync(gstackSKILL, path.join(topLevel, 'SKILL.md'));
+    if (!tryCreateSymlink(gstackSKILL, path.join(topLevel, 'SKILL.md'))) return;
 
     const result = runMigration(tmpHome);
     expect(result.exitCode).toBe(0);
@@ -94,7 +104,7 @@ describe('migration v1.1.3.0 — checkpoint ownership guard', () => {
     const userSkillDir = path.join(tmpHome, 'my-own-skill');
     fs.mkdirSync(userSkillDir, { recursive: true });
     fs.writeFileSync(path.join(userSkillDir, 'SKILL.md'), '# my custom /checkpoint\n');
-    fs.symlinkSync(userSkillDir, topLevel);
+    if (!tryCreateSymlink(userSkillDir, topLevel)) return;
 
     const result = runMigration(tmpHome);
     expect(result.exitCode).toBe(0);
@@ -136,7 +146,7 @@ describe('migration v1.1.3.0 — checkpoint ownership guard', () => {
     const externalSkill = path.join(tmpHome, 'external', 'SKILL.md');
     fs.mkdirSync(path.dirname(externalSkill), { recursive: true });
     fs.writeFileSync(externalSkill, '# external skill\n');
-    fs.symlinkSync(externalSkill, path.join(topLevel, 'SKILL.md'));
+    if (!tryCreateSymlink(externalSkill, path.join(topLevel, 'SKILL.md'))) return;
 
     const result = runMigration(tmpHome);
     expect(result.exitCode).toBe(0);

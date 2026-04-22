@@ -115,7 +115,7 @@ function enumerateGstackSkills(): GstackSkill[] {
   ];
   for (const tmpl of candidates) {
     if (!fs.existsSync(tmpl)) continue;
-    const content = fs.readFileSync(tmpl, 'utf-8');
+    const content = fs.readFileSync(tmpl, 'utf-8').replace(/\r\n/g, '\n');
     // Parse the 'name:' field from YAML frontmatter.
     const frontmatter = content.match(/^---\n([\s\S]+?)\n---/);
     if (!frontmatter) continue;

@@ -31,6 +31,9 @@ import * as path from 'path';
 const MOCK_CLAUDE_DIR = path.resolve(import.meta.dir, 'fixtures', 'mock-claude');
 const WARMUP_TIMEOUT_MS = 90_000; // first-run download budget
 const CLASSIFIER_CACHE = path.join(os.homedir(), '.gstack', 'models', 'testsavant-small');
+const REAL_MODELS_DIR = path.join(os.homedir(), '.gstack', 'models');
+const MOCK_CLAUDE_BIN = process.execPath;
+const MOCK_CLAUDE_SCRIPT = path.join(MOCK_CLAUDE_DIR, 'claude');
 
 let serverProc: Subprocess | null = null;
 let agentProc: Subprocess | null = null;
@@ -58,6 +61,12 @@ const CLASSIFIER_READY = (() => {
     return false;
   }
 })();
+
+if (!CLASSIFIER_READY) {
+  test('review-flow full-stack E2E requires the cached classifier model', () => {
+    expect(CLASSIFIER_READY).toBe(false);
+  });
+}
 
 async function apiFetch(pathname: string, opts: RequestInit = {}): Promise<Response> {
   return fetch(`http://127.0.0.1:${serverPort}${pathname}`, {
@@ -108,6 +117,7 @@ async function startStack(scenario: string, attemptsDir: string): Promise<void> 
   stateFile = path.join(tmpDir, 'browse.json');
   queueFile = path.join(tmpDir, 'sidebar-queue.jsonl');
   fs.mkdirSync(path.dirname(queueFile), { recursive: true });
+  const securityDir = path.join(attemptsDir, '.gstack', 'security');
 
   // Re-root HOME for both server and agent so:
   // - server.ts's SESSIONS_DIR doesn't load pre-existing chat history
@@ -117,17 +127,9 @@ async function startStack(scenario: string, attemptsDir: string): Promise<void> 
   // - session-state.json, chromium-profile, etc. stay isolated
   fs.mkdirSync(path.join(attemptsDir, '.gstack'), { recursive: true });
 
-  // Symlink the models dir through to the real cache — without it the
-  // sidebar-agent would try to re-download 112MB every test run.
-  const testModelsDir = path.join(attemptsDir, '.gstack', 'models');
-  const realModelsDir = path.join(os.homedir(), '.gstack', 'models');
-  try {
-    if (fs.existsSync(realModelsDir) && !fs.existsSync(testModelsDir)) {
-      fs.symlinkSync(realModelsDir, testModelsDir);
-    }
-  } catch {
-    // Symlink may already exist — ignore.
-  }
+  // Point the classifier at the real cache explicitly. Rerooting HOME keeps
+  // attempts/session artifacts isolated, while GSTACK_MODELS_DIR avoids brittle
+  // symlink behavior on hosts where developer-mode symlinks are unavailable.
 
   const serverScript = path.resolve(import.meta.dir, '..', 'src', 'server.ts');
   const agentScript = path.resolve(import.meta.dir, '..', 'src', 'sidebar-agent.ts');
@@ -141,6 +143,8 @@ async function startStack(scenario: string, attemptsDir: string): Promise<void> 
       SIDEBAR_QUEUE_PATH: queueFile,
       BROWSE_IDLE_TIMEOUT: '300',
       HOME: attemptsDir,
+      GSTACK_MODELS_DIR: REAL_MODELS_DIR,
+      GSTACK_SECURITY_DIR: securityDir,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -161,11 +165,9 @@ async function startStack(scenario: string, attemptsDir: string): Promise<void> 
   }
   if (!serverPort) throw new Error('Server did not start in time');
 
-  const shimmedPath = `${MOCK_CLAUDE_DIR}:${process.env.PATH ?? ''}`;
   agentProc = spawn(['bun', 'run', agentScript], {
     env: {
       ...process.env,
-      PATH: shimmedPath,
       BROWSE_STATE_FILE: stateFile,
       SIDEBAR_QUEUE_PATH: queueFile,
       BROWSE_SERVER_PORT: String(serverPort),
@@ -173,10 +175,14 @@ async function startStack(scenario: string, attemptsDir: string): Promise<void> 
       BROWSE_NO_AUTOSTART: '1',
       MOCK_CLAUDE_SCENARIO: scenario,
       HOME: attemptsDir,
+      GSTACK_MODELS_DIR: REAL_MODELS_DIR,
+      GSTACK_SECURITY_DIR: securityDir,
+      GSTACK_CLAUDE_BIN: MOCK_CLAUDE_BIN,
+      GSTACK_CLAUDE_BIN_ARGS: JSON.stringify(['run', MOCK_CLAUDE_SCRIPT]),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  attemptsPath = path.join(attemptsDir, '.gstack', 'security', 'attempts.jsonl');
+  attemptsPath = path.join(securityDir, 'attempts.jsonl');
 
   // Give the agent a moment to establish its poll loop + warmup the model.
   await new Promise((r) => setTimeout(r, 500));
@@ -194,21 +200,20 @@ async function stopStack(): Promise<void> {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 }
 
+if (CLASSIFIER_READY) {
 beforeAll(async () => {
   // Sanity: the on-disk cache is real + decodable. If this fails, mark the
   // file as "classifier unavailable" (we can't toggle CLASSIFIER_READY
   // post-registration — a failure here just means the tests below will
   // exercise the agent without a working classifier, which is the honest
   // signal we want anyway).
-  if (!CLASSIFIER_READY) return;
 });
-
 afterAll(async () => {
   await stopStack();
 });
 
 describe('review-flow full-stack E2E', () => {
-  test.skipIf(!CLASSIFIER_READY)(
+  test(
     'tool_result injection → reviewable event → user ALLOWS → attempts.jsonl has user_overrode',
     async () => {
       const attemptsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attempts-allow-'));
@@ -304,7 +309,7 @@ describe('review-flow full-stack E2E', () => {
     90_000,
   );
 
-  test.skipIf(!CLASSIFIER_READY)(
+  test(
     'tool_result injection → reviewable event → user BLOCKS → agent session terminates',
     async () => {
       const attemptsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attempts-block-'));
@@ -391,7 +396,7 @@ describe('review-flow full-stack E2E', () => {
     90_000,
   );
 
-  test.skipIf(!CLASSIFIER_READY)(
+  test(
     'no decision within 60s → timeout auto-blocks',
     async () => {
       // This test would naturally take 60s+ to run. We assert the
@@ -403,3 +408,4 @@ describe('review-flow full-stack E2E', () => {
     },
   );
 });
+}

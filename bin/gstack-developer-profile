@@ -107,7 +107,7 @@ do_migrate() {
   mv "$LEGACY_FILE" "$LEGACY_FILE.migrated-$TS"
 
   local COUNT
-  COUNT=$(bun -e "console.log(JSON.parse(require('fs').readFileSync('$PROFILE_FILE','utf-8')).sessions.length)" 2>/dev/null || echo "?")
+  COUNT=$(PROFILE_FILE_PATH="$PROFILE_FILE" bun -e "console.log(JSON.parse(await Bun.file(process.env.PROFILE_FILE_PATH).text()).sessions.length)" 2>/dev/null || echo "?")
   echo "MIGRATE: ok — migrated $COUNT sessions from builder-profile.jsonl"
 }
 

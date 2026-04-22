@@ -35,6 +35,7 @@ let tmpDir = '';
 let stateFile = '';
 let queueFile = '';
 const MOCK_CLAUDE_DIR = path.resolve(import.meta.dir, 'fixtures', 'mock-claude');
+const MOCK_CLAUDE_SCRIPT = path.join(MOCK_CLAUDE_DIR, 'claude');
 
 async function apiFetch(pathname: string, opts: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
@@ -88,16 +89,16 @@ beforeAll(async () => {
   // sidebar-agent spawns `claude` via PATH lookup (spawn('claude', ...) — see
   // browse/src/sidebar-agent.ts spawnClaude), so prepending works without any
   // source change.
-  const shimmedPath = `${MOCK_CLAUDE_DIR}:${process.env.PATH ?? ''}`;
   agentProc = spawn(['bun', 'run', agentScript], {
     env: {
       ...process.env,
-      PATH: shimmedPath,
       BROWSE_STATE_FILE: stateFile,
       SIDEBAR_QUEUE_PATH: queueFile,
       BROWSE_SERVER_PORT: String(serverPort),
       BROWSE_PORT: String(serverPort),
       BROWSE_NO_AUTOSTART: '1',
+      GSTACK_CLAUDE_BIN: process.execPath,
+      GSTACK_CLAUDE_BIN_ARGS: JSON.stringify([MOCK_CLAUDE_SCRIPT]),
       // Scenario for mock-claude inherits through spawn env below — the agent
       // itself doesn't read this, but the claude subprocess it spawns does.
       MOCK_CLAUDE_SCENARIO: 'canary_leak_in_tool_arg',

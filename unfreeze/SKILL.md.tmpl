@@ -20,15 +20,25 @@ sensitive: true
 
 Remove the edit restriction set by `/freeze`, allowing edits to all directories.
 
+## Quick Contract
+
+- Prerequisites: a prior `/freeze` or `/guard` run that wrote a freeze state file, plus shell access to remove it.
+- Outputs: the current freeze boundary is cleared and the user is told whether one existed.
+- Stop when: the state file is removed, or there was no boundary to clear.
+- If unavailable: if the state root cannot be determined or the state file cannot be removed, report that directly and do not claim the boundary was cleared.
+
 ```bash
-mkdir -p ~/.gstack/analytics
-echo '{"skill":"unfreeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+STATE_ROOT="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_ROOT" ] || STATE_ROOT=".gstack"
+mkdir -p "$STATE_ROOT/analytics"
+echo '{"skill":"unfreeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> "$STATE_ROOT/analytics/skill-usage.jsonl" 2>/dev/null || true
 ```
 
 ## Clear the boundary
 
 ```bash
-STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.gstack}"
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$STATE_DIR" ] || STATE_DIR=".gstack"
 if [ -f "$STATE_DIR/freeze-dir.txt" ]; then
   PREV=$(cat "$STATE_DIR/freeze-dir.txt")
   rm -f "$STATE_DIR/freeze-dir.txt"

@@ -1112,6 +1112,11 @@ describe('CODEX_SECOND_OPINION resolver', () => {
     expect(content).toContain('Where Claude agrees with the second opinion');
   });
 
+  test('quotes builder-profile binary paths in generated office-hours skills', () => {
+    expect(content).toContain('PROFILE=$("~/.claude/skills/gstack/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
+    expect(codexContent).toContain('PROFILE=$("$GSTACK_ROOT/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
+  });
+
   test('contains Claude subagent fallback', () => {
     expect(content).toContain('CODEX_NOT_AVAILABLE');
     expect(content).toContain('Agent tool');
@@ -1742,7 +1747,9 @@ describe('Codex generation (--host codex)', () => {
       expect(content).not.toContain('~/.claude/skills');
       expect(content).not.toContain('.claude/skills');
       if (content.includes('gstack-config') || content.includes('gstack-update-check') || content.includes('gstack-telemetry-log')) {
-        expect(content).toContain('$GSTACK_ROOT');
+        const hasExternalRoot = content.includes('$GSTACK_ROOT') || content.includes('$GSTACK_BIN') ||
+          content.includes('GSTACK_CONFIG_BIN') || content.includes('GSTACK_UPDATE_CHECK_BIN');
+        expect(hasExternalRoot).toBe(true);
       }
       // If a skill references checklist.md, it must use the correct sidecar path
       if (content.includes('checklist.md') && !content.includes('design-checklist.md')) {

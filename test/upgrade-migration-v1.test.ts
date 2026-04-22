@@ -40,6 +40,9 @@ function run(): { stdout: string; stderr: string; status: number } {
 describe('v1.0.0.0 upgrade migration', () => {
   test('migration file exists and is executable', () => {
     expect(fs.existsSync(MIGRATION)).toBe(true);
+    if (process.platform === 'win32') {
+      return;
+    }
     const stat = fs.statSync(MIGRATION);
     // Owner execute bit should be set
     expect(stat.mode & 0o100).toBeGreaterThan(0);

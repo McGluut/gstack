@@ -1,25 +1,38 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { execFileSync, ExecFileSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
+const BASH = resolveBash();
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
 
 let tmpDir: string;
 let slugDir: string;
 let learningsFile: string;
 
 function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+  const execOpts: ExecFileSyncOptionsWithStringEncoding = {
     cwd: ROOT,
-    env: { ...process.env, GSTACK_HOME: tmpDir },
+    env: {
+      ...process.env,
+      GSTACK_HOME: tmpDir,
+      GSTACK_JSON_INPUT: input,
+      MSYS_NO_PATHCONV: '1',
+      MSYS2_ARG_CONV_EXCL: '*',
+    },
     encoding: 'utf-8',
     timeout: 15000,
   };
   try {
-    const stdout = execSync(`${BIN}/gstack-learnings-log '${input.replace(/'/g, "'\\''")}'`, execOpts).trim();
+    const stdout = execFileSync(
+      BASH,
+      ['-lc', '"$1" "$GSTACK_JSON_INPUT"', 'bash', path.join(BIN, 'gstack-learnings-log')],
+      execOpts,
+    ).trim();
     return { stdout, exitCode: 0 };
   } catch (e: any) {
     if (opts.expectFail) {
@@ -29,15 +42,15 @@ function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: s
   }
 }
 
-function runSearch(args: string = ''): string {
-  const execOpts: ExecSyncOptionsWithStringEncoding = {
+function runSearch(args: string[] = []): string {
+  const execOpts: ExecFileSyncOptionsWithStringEncoding = {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };
   try {
-    return execSync(`${BIN}/gstack-learnings-search ${args}`, execOpts).trim();
+    return execFileSync(BASH, [path.join(BIN, 'gstack-learnings-search'), ...args], execOpts).trim();
   } catch {
     return '';
   }
@@ -101,7 +114,7 @@ describe('gstack-learnings-log', () => {
     expect(f).not.toBeNull();
     const lines = fs.readFileSync(f!, 'utf-8').trim().split('\n');
     expect(lines.length).toBe(2);
-  });
+  }, SLOW_CLI_TIMEOUT);
 });
 
 describe('gstack-learnings-search', () => {
@@ -128,35 +141,35 @@ describe('gstack-learnings-search', () => {
     expect(output).toContain('new version');
     expect(output).not.toContain('old version');
     expect(output).toContain('1 loaded');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('filters by --type', () => {
     runLog('{"skill":"review","type":"pattern","key":"p1","insight":"a pattern","confidence":7,"source":"observed"}');
     runLog('{"skill":"review","type":"pitfall","key":"p2","insight":"a pitfall","confidence":7,"source":"observed"}');
 
-    const patternOnly = runSearch('--type pattern');
+    const patternOnly = runSearch(['--type', 'pattern']);
     expect(patternOnly).toContain('p1');
     expect(patternOnly).not.toContain('p2');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('filters by --query', () => {
     runLog('{"skill":"review","type":"pattern","key":"auth-bypass","insight":"check session tokens","confidence":7,"source":"observed"}');
     runLog('{"skill":"review","type":"pattern","key":"n-plus-one","insight":"use includes for associations","confidence":7,"source":"observed"}');
 
-    const authOnly = runSearch('--query auth');
+    const authOnly = runSearch(['--query', 'auth']);
     expect(authOnly).toContain('auth-bypass');
     expect(authOnly).not.toContain('n-plus-one');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('respects --limit', () => {
     for (let i = 0; i < 5; i++) {
       runLog(`{"skill":"review","type":"pattern","key":"limit-${i}","insight":"insight ${i}","confidence":7,"source":"observed"}`);
     }
 
-    const limited = runSearch('--limit 2');
+    const limited = runSearch(['--limit', '2']);
     // Should show 2, not 5
     expect(limited).toContain('2 loaded');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('applies confidence decay for observed/inferred sources', () => {
     // Entry from 90 days ago with source=observed, confidence=8
@@ -204,13 +217,21 @@ describe('gstack-learnings-log edge cases', () => {
   });
 
   test('handles JSON with special characters in insight', () => {
-    const input = JSON.stringify({ skill: 'review', type: 'pattern', key: 'special-chars', insight: 'Use "quotes" and \\backslashes', confidence: 7, source: 'observed' });
+    const input = JSON.stringify({
+      skill: 'review',
+      type: 'pattern',
+      key: 'special-chars',
+      insight: String.raw`Use "quotes" and \backslashes`,
+      confidence: 7,
+      source: 'observed',
+    });
     runLog(input);
 
     const f = findLearningsFile();
     expect(f).not.toBeNull();
     const parsed = JSON.parse(fs.readFileSync(f!, 'utf-8').trim());
     expect(parsed.insight).toContain('quotes');
+    expect(parsed.insight).toContain('\\');
     expect(parsed.insight).toContain('backslashes');
   });
 
@@ -236,7 +257,7 @@ describe('gstack-learnings-search edge cases', () => {
     const recentIdx = output.indexOf('recent');
     // High confidence should appear first
     expect(highIdx).toBeLessThan(recentIdx);
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('groups output by type', () => {
     runLog(JSON.stringify({ skill: 'review', type: 'pattern', key: 'p1', insight: 'a pattern', confidence: 7, source: 'observed' }));
@@ -245,18 +266,18 @@ describe('gstack-learnings-search edge cases', () => {
     const output = runSearch();
     expect(output).toContain('## Patterns');
     expect(output).toContain('## Pitfalls');
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('combined --type and --query filtering', () => {
     runLog(JSON.stringify({ skill: 'review', type: 'pattern', key: 'auth-token', insight: 'check token expiry', confidence: 7, source: 'observed' }));
     runLog(JSON.stringify({ skill: 'review', type: 'pitfall', key: 'auth-leak', insight: 'auth token in logs', confidence: 7, source: 'observed' }));
     runLog(JSON.stringify({ skill: 'review', type: 'pattern', key: 'cache-key', insight: 'cache invalidation', confidence: 7, source: 'observed' }));
 
-    const output = runSearch('--type pattern --query auth');
+    const output = runSearch(['--type', 'pattern', '--query', 'auth']);
     expect(output).toContain('auth-token');
     expect(output).not.toContain('auth-leak');  // wrong type
     expect(output).not.toContain('cache-key');  // wrong query
-  });
+  }, SLOW_CLI_TIMEOUT);
 
   test('entries with missing key or type are skipped', () => {
     runLog(JSON.stringify({ skill: 'review', type: 'pattern', key: 'valid', insight: 'valid entry', confidence: 7, source: 'observed' }));

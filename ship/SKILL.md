@@ -872,6 +872,13 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 You are running the `/ship` workflow. This is a **non-interactive, fully automated** workflow. Do NOT ask for confirmation at any step. The user said `/ship` which means DO IT. Run straight through and output the PR URL at the end.
 
+## Quick Contract
+
+- Prerequisites: a non-base feature branch, working git/GitHub access, and runnable test/review commands for this repo.
+- Outputs: merged-base branch state, test and review evidence, VERSION/CHANGELOG/TODOS updates when warranted, commits, push, and a PR URL or updated PR body.
+- Stop when: the PR is ready and its URL is reported, or a blocking gate is hit (merge conflict, in-branch failure, ASK item, coverage gate, plan gate, or user-owned version/TODOS choice).
+- If unavailable: if a required command, merge, test lane, or review gate cannot complete, stop at the first real blocker and say exactly what remains unresolved instead of pushing through.
+
 **Only stop for:**
 - On the base branch (abort)
 - Merge conflicts that can't be auto-resolved (stop, show conflicts)

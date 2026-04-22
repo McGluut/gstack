@@ -824,11 +824,30 @@ this skill in plain English and you interpret. Never require subcommand syntax.
 Shortcuts exist (`profile`, `vibe`, `stats`, etc.) but users don't have to
 memorize them.
 
+## Quick Contract
+
+- Prerequisites: gstack config and profile files exist or can be created. Some commands also need prior question-log data.
+- Outputs: a profile summary, stats, or a confirmed preference/profile mutation written to the gstack data store.
+- Stop when: the requested inspect, enable, disable, or update action is complete, or a confirmation question is waiting on the user.
+- If unavailable: if no log or profile data exists yet, say so and show the minimal next step. If the mutation target is ambiguous, stop and ask which question or profile dimension they mean.
+
 **v1 scope (observational):** typed question registry, per-question explicit
 preferences, question logging, dual-track profile (declared + inferred),
 plain-English inspection. No skills adapt behavior based on the profile yet.
 
 Canonical reference: `docs/designs/PLAN_TUNING_V0.md`.
+
+---
+
+## Runtime Preflight
+
+Before any step that uses `bun -e`, verify Bun is available:
+
+```bash
+command -v bun >/dev/null 2>&1 && echo "BUN_READY" || echo "BUN_MISSING"
+```
+
+If `BUN_MISSING`, stop and say: "This `/plan-tune` path needs Bun for profile and log parsing. Install Bun or run the underlying gstack binary directly, then retry." Do not claim a write or profile summary completed.
 
 ---
 
@@ -1123,14 +1142,17 @@ the user decides whether declared is wrong or behavior is wrong.
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
 _LOG="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/question-log.jsonl"
 [ -f "$_LOG" ] && echo "TOTAL_LOGGED: $(wc -l < "$_LOG" | tr -d ' ')" || echo "TOTAL_LOGGED: 0"
-~/.claude/skills/gstack/bin/gstack-developer-profile --profile | bun -e "
-  const p = JSON.parse(await Bun.stdin.text());
+_PROFILE_JSON="$(mktemp)"
+~/.claude/skills/gstack/bin/gstack-developer-profile --profile > "$_PROFILE_JSON"
+PROFILE_JSON="$_PROFILE_JSON" bun -e "
+  const p = JSON.parse(require('fs').readFileSync(process.env.PROFILE_JSON, 'utf-8'));
   const d = p.inferred?.diversity || {};
   console.log('SKILLS_COVERED: ' + (d.skills_covered ?? 0));
   console.log('QUESTIONS_COVERED: ' + (d.question_ids_covered ?? 0));
   console.log('DAYS_SPAN: ' + (d.days_span ?? 0));
   console.log('CALIBRATED: ' + (p.inferred?.sample_size >= 20 && d.skills_covered >= 3 && d.question_ids_covered >= 8 && d.days_span >= 7));
 "
+rm -f "$_PROFILE_JSON"
 ```
 
 Present as a compact summary with plain-English calibration status ("5 more

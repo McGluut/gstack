@@ -833,6 +833,13 @@ When the user types `/cso`, run this skill.
 - `/cso --owasp` — OWASP Top 10 only (Phases 0, 9, 12-14)
 - `/cso --scope auth` — focused audit on a specific domain
 
+## Quick Contract
+
+- Prerequisites: a readable repo or repo-scoped target, enough code/config surface to build an architecture model, and whichever optional tools are needed for the chosen scope (WebSearch, Agent, global-skill scan permission).
+- Outputs: a security posture report with exploit scenarios, severity/confidence/status for each finding, and a saved local JSON report.
+- Stop when: scope flags conflict, confidence stays below the active gate, or an out-of-repo global-skill scan was declined and the requested mode depends on it.
+- If unavailable: if WebSearch, Agent, package-manager audit tools, or optional global-skill access are unavailable, continue with the local phases and state each skipped verification surface explicitly.
+
 ## Mode Resolution
 
 1. If no flags → run ALL phases 0-14, daily mode (8/10 confidence gate).
@@ -883,7 +890,7 @@ grep -q "laravel" composer.json 2>/dev/null && echo "FRAMEWORK: Laravel"
 **Soft gate, not hard gate:** Stack detection determines scan PRIORITY, not scan SCOPE. In subsequent phases, PRIORITIZE scanning for detected languages/frameworks first and most thoroughly. However, do NOT skip undetected languages entirely — after the targeted scan, run a brief catch-all pass with high-signal patterns (SQL injection, command injection, hardcoded secrets, SSRF) across ALL file types. A Python service nested in `ml/` that wasn't detected at root still gets basic coverage.
 
 **Mental model:**
-- Read CLAUDE.md, README, key config files
+- Read project instructions (`CLAUDE.md` when present), README, and key config files
 - Map the application architecture: what components exist, how they connect, where trust boundaries are
 - Identify the data flow: where does user input enter? Where does it exit? What transformations happen?
 - Document invariants and assumptions the code relies on

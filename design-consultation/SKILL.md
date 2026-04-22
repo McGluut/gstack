@@ -833,6 +833,13 @@ You are a senior product designer with strong opinions about typography, color, 
 
 **Your posture:** Design consultant, not form wizard. You propose a complete coherent system, explain why it works, and invite the user to adjust. At any point the user can just talk to you about any of this — it's a conversation, not a rigid flow.
 
+## Quick Contract
+
+- Prerequisites: enough product context to design honestly, plus optional browse or design-binary support if competitive research or AI mockups are available.
+- Outputs: one coherent design-system proposal, a visual preview or AI mockup, and usually `DESIGN.md` plus optional project-instructions updates when the user accepts them.
+- Stop when: the product direction is still too unclear to design, the user wants to reroute through ideation first, or a risky design-system decision needs explicit confirmation.
+- If unavailable: if browse, the design binary, or persistent prior-session artifacts are unavailable, continue with the conversational proposal and note which research or preview surface was skipped.
+
 ---
 
 ## Phase 0: Pre-checks
@@ -859,7 +866,9 @@ Look for office-hours output:
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-ls ~/.gstack/projects/$SLUG/*office-hours* 2>/dev/null | head -5
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+ls "$PROJECT_STORE"/*office-hours* 2>/dev/null | head -5
 ls .context/*office-hours* .context/attachments/*office-hours* 2>/dev/null | head -5
 ```
 
@@ -927,7 +936,7 @@ B=""
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"
 else
-  echo "BROWSE_NOT_AVAILABLE (will use 'open' to view comparison boards)"
+  echo "BROWSE_NOT_AVAILABLE (will surface the board URL and use gstack-open-url if available)"
 fi
 ```
 
@@ -935,8 +944,9 @@ If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
 existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+If `BROWSE_NOT_AVAILABLE`: surface the board URL or file path explicitly. If
+`~/.claude/skills/gstack/bin/gstack-open-url` is available, use it to open the
+comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If `DESIGN_READY`: the design binary is available for visual mockup generation.
 Commands:
@@ -1085,8 +1095,10 @@ Use WebSearch to find 5-10 products in their space. Search for:
 If the browse binary is available (`$B` is set), visit the top 3-5 sites in the space and capture visual evidence:
 
 ```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
 $B goto "https://example-site.com"
-$B screenshot "/tmp/design-research-site-name.png"
+$B screenshot "$TMP_ROOT/design-research-site-name.png"
 $B snapshot
 ```
 
@@ -1305,8 +1317,10 @@ This phase generates visual previews of the proposed design system. Two paths de
 Generate AI-rendered mockups showing the proposed design system applied to realistic screens for this product. This is far more powerful than an HTML preview — the user sees what their product could actually look like.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-_DESIGN_DIR="$HOME/.gstack/projects/$SLUG/designs/design-system-$(date +%Y%m%d)"
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+[ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
+_DESIGN_DIR="$PROJECT_STORE/designs/design-system-$(date +%Y%m%d)"
 mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
@@ -1343,8 +1357,8 @@ $D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DES
 ```
 
 This command generates the board HTML, starts an HTTP server on a random port,
-and opens it in the user's default browser. **Run it in the background** with `&`
-because the server needs to stay running while the user interacts with the board.
+and usually opens it in the user's default browser. **Run it in the background** with
+`&` because the server needs to stay running while the user interacts with the board.
 
 Parse the port from stderr output: `SERVE_STARTED: port=XXXXX`. You need this
 for the board URL and for reloading during regeneration cycles.
@@ -1352,9 +1366,9 @@ for the board URL and for reloading during regeneration cycles.
 **PRIMARY WAIT: AskUserQuestion with board URL**
 
 After the board is serving, use AskUserQuestion to wait for the user. Include the
-board URL so they can click it if they lost the browser tab:
+board URL so they can click it if automatic opening failed or they lost the browser tab:
 
-"I've opened a comparison board with the design variants:
+"I've started a comparison board with the design variants:
 http://127.0.0.1:<PORT>/ — Rate them, leave comments, remix
 elements you like, and click Submit when you're done. Let me know when you've
 submitted your feedback (or paste your preferences here). If you clicked
@@ -1450,13 +1464,15 @@ After the user picks a direction:
 Generate a polished HTML preview page and open it in the user's browser. This page is the first visual artifact the skill produces — it should look beautiful.
 
 ```bash
-PREVIEW_FILE="/tmp/design-consultation-preview-$(date +%s).html"
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+PREVIEW_FILE="$TMP_ROOT/design-consultation-preview-$(date +%s).html"
 ```
 
 Write the preview HTML to `$PREVIEW_FILE`, then open it:
 
 ```bash
-open "$PREVIEW_FILE"
+~/.claude/skills/gstack/bin/gstack-open-url "$PREVIEW_FILE"
 ```
 
 ### Preview Page Requirements (Path B only)
@@ -1486,7 +1502,7 @@ The agent writes a **single, self-contained HTML file** (no framework dependenci
 
 The page should make the user think "oh nice, they thought of this." It's selling the design system by showing what the product could feel like, not just listing hex codes and font names.
 
-If `open` fails (headless environment), tell the user: *"I wrote the preview to [path] — open it in your browser to see the fonts and colors rendered."*
+If `~/.claude/skills/gstack/bin/gstack-open-url` fails or automatic opening is unavailable, tell the user: *"I wrote the preview to [path]. Open that file in your browser to see the fonts and colors rendered."*
 
 If the user says skip the preview, go directly to Phase 6.
 

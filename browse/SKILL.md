@@ -523,6 +523,20 @@ If `NEEDS_SETUP`:
    fi
    ```
 
+## Quick Contract
+
+- Prerequisites: a working browse install and a target URL, file, or local app the user actually wants to inspect.
+- Outputs: page state evidence, screenshots or diffs when requested, and explicit failure details when the browser or target is unavailable.
+- Stop when: the target cannot be reached, the browser server cannot be started or attached, or a required local file is outside the allowed safe-dirs scope.
+- If unavailable: if headed mode, screenshots, or local-file rendering are blocked, continue with the read-only or manual-path surface that still works and state which capability was skipped.
+
+When you need on-disk screenshots or HTML fixtures, use a writable temp root instead of assuming `/tmp`:
+
+```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+```
+
 ## Core QA Patterns
 
 ### 1. Verify a page loads correctly
@@ -554,8 +568,8 @@ $B snapshot -D                   # unified diff shows exactly what changed
 
 ### 4. Visual evidence for bug reports
 ```bash
-$B snapshot -i -a -o /tmp/annotated.png   # labeled screenshot
-$B screenshot /tmp/bug.png                # plain screenshot
+$B snapshot -i -a -o "$TMP_ROOT/annotated.png"   # labeled screenshot
+$B screenshot "$TMP_ROOT/bug.png"                # plain screenshot
 $B console                                # error log
 ```
 
@@ -578,9 +592,9 @@ $B js "document.body.textContent.includes('Success')"
 
 ### 7. Test responsive layouts
 ```bash
-$B responsive /tmp/layout        # mobile + tablet + desktop screenshots
+$B responsive "$TMP_ROOT/layout" # mobile + tablet + desktop screenshots
 $B viewport 375x812              # or set specific viewport
-$B screenshot /tmp/mobile.png
+$B screenshot "$TMP_ROOT/mobile.png"
 ```
 
 ### 8. Test file uploads
@@ -609,13 +623,13 @@ After `$B screenshot`, `$B snapshot -a -o`, or `$B responsive`, always use the R
 Two paths, pick the cleaner one:
 ```bash
 # HTML file on disk → goto file:// (absolute, or cwd-relative)
-$B goto file:///tmp/report.html
+$B goto "file://$TMP_ROOT/report.html"
 $B goto file://./docs/page.html        # cwd-relative
 $B goto file://~/Documents/page.html   # home-relative
 
 # HTML generated in memory → load-html reads the file into setContent
-echo '<div class="tweet">hello</div>' > /tmp/tweet.html
-$B load-html /tmp/tweet.html
+echo '<div class="tweet">hello</div>' > "$TMP_ROOT/tweet.html"
+$B load-html "$TMP_ROOT/tweet.html"
 ```
 
 `goto file://...` is usually cleaner (URL is saved in state, relative asset URLs resolve against the file's dir, scale changes replay naturally). `load-html` uses `page.setContent()` — URL stays `about:blank`, but the content survives `viewport --scale` via in-memory replay. Both are scoped to files under cwd or `$TMPDIR`.
@@ -623,9 +637,9 @@ $B load-html /tmp/tweet.html
 ### 13. Retina screenshots (deviceScaleFactor)
 ```bash
 $B viewport 480x600 --scale 2       # 2x deviceScaleFactor
-$B load-html /tmp/tweet.html        # or: $B goto file://./tweet.html
-$B screenshot /tmp/out.png --selector .tweet-card
-# → /tmp/out.png is 2x the pixel dimensions of the element
+$B load-html "$TMP_ROOT/tweet.html" # or: $B goto file://./tweet.html
+$B screenshot "$TMP_ROOT/out.png" --selector .tweet-card
+# → $TMP_ROOT/out.png is 2x the pixel dimensions of the element
 ```
 Scale must be 1-3 (gstack policy cap). Changing `--scale` recreates the browser context; refs from `snapshot` are invalidated (rerun `snapshot`), but `load-html` content is replayed automatically. Not supported in headed mode.
 
@@ -647,11 +661,11 @@ Worked example (the tweet-renderer flow — Puppeteer → browse):
 
 ```bash
 # Generate HTML in memory, render at 2x scale, screenshot the tweet card.
-echo '<div class="tweet-card" style="width:400px;height:200px;background:#1da1f2;color:white;padding:20px">hello</div>' > /tmp/tweet.html
+echo '<div class="tweet-card" style="width:400px;height:200px;background:#1da1f2;color:white;padding:20px">hello</div>' > "$TMP_ROOT/tweet.html"
 $B viewport 480x600 --scale 2
-$B load-html /tmp/tweet.html
-$B screenshot /tmp/out.png --selector .tweet-card
-# /tmp/out.png is 800x400 px, crisp (2x deviceScaleFactor).
+$B load-html "$TMP_ROOT/tweet.html"
+$B screenshot "$TMP_ROOT/out.png" --selector .tweet-card
+# $TMP_ROOT/out.png is 800x400 px, crisp (2x deviceScaleFactor).
 ```
 
 Aliases: typing `setcontent` or `set-content` routes to `load-html` automatically. Typing a typo (`load-htm`) returns `Did you mean 'load-html'?`.

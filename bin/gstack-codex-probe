@@ -14,6 +14,22 @@
 #   - All functions prefix with _gstack_codex_.
 #   - No command execution at source time (only function defs).
 
+_gstack_codex_state_dir() {
+  local _state_dir="${GSTACK_STATE_DIR:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+  if [ -z "$_state_dir" ]; then
+    _state_dir=".gstack"
+  fi
+  printf '%s' "$_state_dir"
+}
+
+_gstack_codex_bin_dir() {
+  local _src="${BASH_SOURCE[0]:-$0}"
+  local _dir
+  _dir=$(cd "$(dirname "$_src")" 2>/dev/null && pwd)
+  [ -n "$_dir" ] || return 1
+  printf '%s' "$_dir"
+}
+
 # --- Auth probe -------------------------------------------------------------
 
 _gstack_codex_auth_probe() {
@@ -78,12 +94,14 @@ _gstack_codex_log_event() {
   local _event="$1"
   local _duration="${2:-0}"
   [ "${_TEL:-off}" = "off" ] && return 0
-  mkdir -p "$HOME/.gstack/analytics" 2>/dev/null || return 0
+  local _state_dir
+  _state_dir=$(_gstack_codex_state_dir)
+  mkdir -p "$_state_dir/analytics" 2>/dev/null || return 0
   local _ts
   _ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)
   printf '{"skill":"codex","event":"%s","duration_s":"%s","ts":"%s"}\n' \
     "$_event" "$_duration" "$_ts" \
-    >> "$HOME/.gstack/analytics/skill-usage.jsonl" 2>/dev/null || true
+    >> "$_state_dir/analytics/skill-usage.jsonl" 2>/dev/null || true
 }
 
 # --- Learnings log on hang --------------------------------------------------
@@ -94,7 +112,9 @@ _gstack_codex_log_hang() {
   # Best-effort: errors swallowed.
   local _mode="${1:-unknown}"
   local _prompt_size="${2:-0}"
-  local _log_bin="$HOME/.claude/skills/gstack/bin/gstack-learnings-log"
+  local _bin_dir
+  _bin_dir=$(_gstack_codex_bin_dir) || return 0
+  local _log_bin="$_bin_dir/gstack-learnings-log"
   [ -x "$_log_bin" ] || return 0
   local _key="codex-hang-$(date +%s 2>/dev/null || echo unknown)"
   "$_log_bin" "$(printf '{"skill":"codex","type":"operational","key":"%s","insight":"Codex timed out after 600s during [%s] invocation. Prompt size: %s. Consider splitting prompt or checking network.","confidence":8,"source":"observed","files":["codex/SKILL.md.tmpl","autoplan/SKILL.md.tmpl"]}' "$_key" "$_mode" "$_prompt_size")" \

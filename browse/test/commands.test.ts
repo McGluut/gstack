@@ -8,7 +8,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { startTestServer } from './test-server';
 import { BrowserManager } from '../src/browser-manager';
-import { resolveServerScript } from '../src/cli';
 import { handleReadCommand as _handleReadCommand } from '../src/read-commands';
 import { handleWriteCommand as _handleWriteCommand } from '../src/write-commands';
 import { handleMetaCommand } from '../src/meta-commands';
@@ -17,6 +16,9 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 import * as path from 'path';
 
+const browseIntegrationDescribe = process.platform === 'win32' ? describe.skip : describe;
+
+browseIntegrationDescribe('browse command integration', () => {
 // Thin wrappers that bridge old test calls (bm as 3rd arg) to new signatures (session + bm)
 const handleReadCommand = (cmd: string, args: string[], b: BrowserManager) =>
   _handleReadCommand(cmd, args, b.getActiveSession());
@@ -2424,4 +2426,5 @@ describe('Command aliases', () => {
     const result = await handleMetaCommand('chain', [JSON.stringify([['set-content', aliasFix]])], bm, async () => {});
     expect(result).toContain('Loaded HTML:');
   });
+});
 });

@@ -25,6 +25,38 @@ allowed-tools:
 
 Upgrade gstack to the latest version and show what's new.
 
+## Quick Contract
+
+- Prerequisites: an owned gstack install directory, network access to fetch updates, and working `git`, `bash`, `mktemp`, and `sort -V` support before any destructive upgrade step runs.
+- Outputs: an upgraded install, synced vendored copy when applicable, migration results, and a summary of what changed.
+- Stop when: the upgrade completes, or install ownership / dirty install state / missing preflight tools / missing `./setup` blocks a safe upgrade.
+- If unavailable: if the install cannot be identified safely or a destructive reset/move/delete would outrun the rollback boundary, stop before mutating files and tell the user what to reconcile first.
+
+## Runtime Preflight
+
+Resolve helper and state roots before any mutation:
+
+```bash
+GSTACK_BIN_DIR="./bin"
+[ -x "$GSTACK_BIN_DIR/gstack-config" ] || GSTACK_BIN_DIR="$(cd "${CLAUDE_SKILL_DIR}/../bin" 2>/dev/null && pwd)"
+GSTACK_CONFIG_BIN="${GSTACK_BIN_DIR:+$GSTACK_BIN_DIR/gstack-config}"
+GSTACK_UPDATE_CHECK_BIN="${GSTACK_BIN_DIR:+$GSTACK_BIN_DIR/gstack-update-check}"
+GSTACK_STATE_ROOT="${GSTACK_STATE_DIR:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
+[ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
+TMP_ROOT="${TMPDIR:-${TMP:-$GSTACK_STATE_ROOT/tmp}}"
+mkdir -p "$TMP_ROOT"
+if command -v git >/dev/null 2>&1 && command -v bash >/dev/null 2>&1 && command -v mktemp >/dev/null 2>&1 && printf '1\n1\n' | sort -V >/dev/null 2>&1; then
+  echo "UPGRADE_RUNTIME_READY"
+else
+  echo "UPGRADE_RUNTIME_MISSING"
+fi
+echo "GSTACK_BIN_DIR=$GSTACK_BIN_DIR"
+echo "GSTACK_STATE_ROOT=$GSTACK_STATE_ROOT"
+echo "TMP_ROOT=$TMP_ROOT"
+```
+
+If the output contains `UPGRADE_RUNTIME_MISSING`, stop before any reset, move, or delete and name the missing tool. If `GSTACK_CONFIG_BIN` or `GSTACK_UPDATE_CHECK_BIN` are unavailable, skip the optional helper command and tell the user which preference or update helper could not be resolved.
+
 ## Inline upgrade flow
 
 This section is referenced by all skill preambles when they detect `UPGRADE_AVAILABLE`.
@@ -35,7 +67,7 @@ First, check if auto-upgrade is enabled:
 ```bash
 _AUTO=""
 [ "${GSTACK_AUTO_UPGRADE:-}" = "1" ] && _AUTO="true"
-[ -z "$_AUTO" ] && _AUTO=$(~/.claude/skills/gstack/bin/gstack-config get auto_upgrade 2>/dev/null || true)
+[ -z "$_AUTO" ] && [ -x "$GSTACK_CONFIG_BIN" ] && _AUTO=$("$GSTACK_CONFIG_BIN" get auto_upgrade 2>/dev/null || true)
 echo "AUTO_UPGRADE=$_AUTO"
 ```
 
@@ -49,13 +81,13 @@ echo "AUTO_UPGRADE=$_AUTO"
 
 **If "Always keep me up to date":**
 ```bash
-~/.claude/skills/gstack/bin/gstack-config set auto_upgrade true
+[ -x "$GSTACK_CONFIG_BIN" ] && "$GSTACK_CONFIG_BIN" set auto_upgrade true
 ```
 Tell user: "Auto-upgrade enabled. Future updates will install automatically." Then proceed to Step 2.
 
 **If "Not now":** Write snooze state with escalating backoff (first snooze = 24h, second = 48h, third+ = 1 week), then continue with the current skill. Do not mention the upgrade again.
 ```bash
-_SNOOZE_FILE="$HOME/.gstack/update-snoozed"
+_SNOOZE_FILE="$GSTACK_STATE_ROOT/update-snoozed"
 _REMOTE_VER="{new}"
 _CUR_LEVEL=0
 if [ -f "$_SNOOZE_FILE" ]; then
@@ -71,13 +103,13 @@ echo "$_REMOTE_VER $_NEW_LEVEL $(date +%s)" > "$_SNOOZE_FILE"
 ```
 Note: `{new}` is the remote version from the `UPGRADE_AVAILABLE` output — substitute it from the update check result.
 
-Tell user the snooze duration: "Next reminder in 24h" (or 48h or 1 week, depending on level). Tip: "Set `auto_upgrade: true` in `~/.gstack/config.yaml` for automatic upgrades."
+Tell user the snooze duration: "Next reminder in 24h" (or 48h or 1 week, depending on level). Tip: "Set `auto_upgrade: true` in the gstack config file (`$GSTACK_STATE_ROOT/config.yaml` by default) for automatic upgrades."
 
 **If "Never ask again":**
 ```bash
-~/.claude/skills/gstack/bin/gstack-config set update_check false
+[ -x "$GSTACK_CONFIG_BIN" ] && "$GSTACK_CONFIG_BIN" set update_check false
 ```
-Tell user: "Update checks disabled. Run `~/.claude/skills/gstack/bin/gstack-config set update_check true` to re-enable."
+Tell user: "Update checks disabled. Run `$GSTACK_CONFIG_BIN set update_check true` to re-enable."
 Continue with the current skill.
 
 ### Step 2: Detect install type
@@ -110,6 +142,19 @@ echo "Install type: $INSTALL_TYPE at $INSTALL_DIR"
 
 The install type and directory path printed above will be used in all subsequent steps.
 
+### Step 2.5: Preflight the detected install
+
+```bash
+if [ ! -f "$INSTALL_DIR/setup" ]; then
+  echo "ERROR: install directory is missing ./setup; stop before upgrading."
+  exit 1
+fi
+if ! printf '1\n1\n' | sort -V >/dev/null 2>&1; then
+  echo "ERROR: sort -V support is required for migration ordering on this host."
+  exit 1
+fi
+```
+
 ### Step 3: Save old version
 
 Use the install directory from Step 2's output below:
@@ -125,9 +170,15 @@ Use the install type and directory detected in Step 2:
 **For git installs** (global-git, local-git):
 ```bash
 cd "$INSTALL_DIR"
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  echo "ERROR: install directory has local changes. Commit, stash, or discard them before running /gstack-upgrade."
+  exit 1
+fi
+DEFAULT_REMOTE_REF=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || echo "refs/remotes/origin/main")
+DEFAULT_BRANCH="${DEFAULT_REMOTE_REF##refs/remotes/origin/}"
 STASH_OUTPUT=$(git stash 2>&1)
-git fetch origin
-git reset --hard origin/main
+git fetch origin "$DEFAULT_BRANCH"
+git reset --hard "origin/$DEFAULT_BRANCH"
 ./setup
 ```
 If `$STASH_OUTPUT` contains "Saved working directory", warn the user: "Note: local changes were stashed. Run `git stash pop` in the skill directory to restore them."
@@ -135,11 +186,17 @@ If `$STASH_OUTPUT` contains "Saved working directory", warn the user: "Note: loc
 **For vendored installs** (vendored, vendored-global):
 ```bash
 PARENT=$(dirname "$INSTALL_DIR")
-TMP_DIR=$(mktemp -d)
-git clone --depth 1 https://github.com/garrytan/gstack.git "$TMP_DIR/gstack"
+TMP_DIR=$(mktemp -d "$TMP_ROOT/gstack-upgrade-XXXXXX")
+git clone --depth 1 https://github.com/mcgluut/gstack.git "$TMP_DIR/gstack"
 mv "$INSTALL_DIR" "$INSTALL_DIR.bak"
 mv "$TMP_DIR/gstack" "$INSTALL_DIR"
-cd "$INSTALL_DIR" && ./setup
+if ! (cd "$INSTALL_DIR" && ./setup); then
+  rm -rf "$INSTALL_DIR"
+  mv "$INSTALL_DIR.bak" "$INSTALL_DIR"
+  rm -rf "$TMP_DIR"
+  echo "ERROR: setup failed after replacing the install. Restored the previous install."
+  exit 1
+fi
 rm -rf "$INSTALL_DIR.bak" "$TMP_DIR"
 ```
 
@@ -157,7 +214,7 @@ if [ -n "$_ROOT" ] && [ -d "$_ROOT/.claude/skills/gstack" ]; then
     LOCAL_GSTACK="$_ROOT/.claude/skills/gstack"
   fi
 fi
-_TEAM_MODE=$(~/.claude/skills/gstack/bin/gstack-config get team_mode 2>/dev/null || echo "false")
+_TEAM_MODE=$([ -x "$GSTACK_CONFIG_BIN" ] && "$GSTACK_CONFIG_BIN" get team_mode 2>/dev/null || echo "false")
 echo "LOCAL_GSTACK=$LOCAL_GSTACK"
 echo "TEAM_MODE=$_TEAM_MODE"
 ```
@@ -220,10 +277,10 @@ for how to add new migrations.
 ### Step 5: Write marker + clear cache
 
 ```bash
-mkdir -p ~/.gstack
-echo "$OLD_VERSION" > ~/.gstack/just-upgraded-from
-rm -f ~/.gstack/last-update-check
-rm -f ~/.gstack/update-snoozed
+mkdir -p "$GSTACK_STATE_ROOT"
+echo "$OLD_VERSION" > "$GSTACK_STATE_ROOT/just-upgraded-from"
+rm -f "$GSTACK_STATE_ROOT/last-update-check"
+rm -f "$GSTACK_STATE_ROOT/update-snoozed"
 ```
 
 ### Step 6: Show What's New
@@ -254,8 +311,7 @@ When invoked directly as `/gstack-upgrade` (not from a preamble):
 
 1. Force a fresh update check (bypass cache):
 ```bash
-~/.claude/skills/gstack/bin/gstack-update-check --force 2>/dev/null || \
-.claude/skills/gstack/bin/gstack-update-check --force 2>/dev/null || true
+[ -x "$GSTACK_UPDATE_CHECK_BIN" ] && "$GSTACK_UPDATE_CHECK_BIN" --force 2>/dev/null || true
 ```
 Use the output to determine if an upgrade is available.
 

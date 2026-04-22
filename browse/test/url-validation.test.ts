@@ -2,6 +2,7 @@ import { describe, it, expect } from 'bun:test';
 import { validateNavigationUrl, normalizeFileUrl } from '../src/url-validation';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'node:url';
 import { TEMP_DIR } from '../src/platform';
 
 describe('validateNavigationUrl', () => {
@@ -27,14 +28,14 @@ describe('validateNavigationUrl', () => {
 
   it('rejects file:// paths outside safe dirs (cwd + TEMP_DIR)', async () => {
     // file:// is accepted as a scheme now, but safe-dirs policy blocks /etc/passwd.
-    await expect(validateNavigationUrl('file:///etc/passwd')).rejects.toThrow(/Path must be within/i);
+    await expect(validateNavigationUrl('file:///etc/passwd')).rejects.toThrow(/Invalid file URL|Path must be within/i);
   });
 
   it('accepts file:// for files under TEMP_DIR', async () => {
     const tmpHtml = path.join(TEMP_DIR, `browse-test-${Date.now()}.html`);
     fs.writeFileSync(tmpHtml, '<html><body>ok</body></html>');
     try {
-      const result = await validateNavigationUrl(`file://${tmpHtml}`);
+      const result = await validateNavigationUrl(pathToFileURL(tmpHtml).href);
       // Result should be a canonical file:// URL (pathToFileURL form)
       expect(result.startsWith('file://')).toBe(true);
       expect(result.toLowerCase()).toContain('browse-test-');
@@ -114,7 +115,7 @@ describe('validateNavigationUrl', () => {
 
 describe('validateNavigationUrl — restoreState coverage', () => {
   it('blocks file:// URLs outside safe dirs that could appear in saved state', async () => {
-    await expect(validateNavigationUrl('file:///etc/passwd')).rejects.toThrow(/Path must be within/i);
+    await expect(validateNavigationUrl('file:///etc/passwd')).rejects.toThrow(/Invalid file URL|Path must be within/i);
   });
 
   it('blocks chrome:// URLs that could appear in saved state', async () => {
@@ -143,9 +144,7 @@ describe('normalizeFileUrl', () => {
 
   it('expands file://./<rel> to absolute file://<cwd>/<rel>', () => {
     const result = normalizeFileUrl('file://./docs/page.html');
-    expect(result.startsWith('file://')).toBe(true);
-    expect(result).toContain(cwd.replace(/\\/g, '/'));
-    expect(result.endsWith('/docs/page.html')).toBe(true);
+    expect(result).toBe(pathToFileURL(path.resolve(cwd, 'docs/page.html')).href);
   });
 
   it('expands file://~/<rel> to absolute file://<homedir>/<rel>', () => {
@@ -156,9 +155,7 @@ describe('normalizeFileUrl', () => {
 
   it('expands file://<simple-segment>/<rest> to cwd-relative', () => {
     const result = normalizeFileUrl('file://docs/page.html');
-    expect(result.startsWith('file://')).toBe(true);
-    expect(result).toContain(cwd.replace(/\\/g, '/'));
-    expect(result.endsWith('/docs/page.html')).toBe(true);
+    expect(result).toBe(pathToFileURL(path.resolve(cwd, 'docs/page.html')).href);
   });
 
   it('passes through file://localhost/<abs> unchanged', () => {
@@ -203,11 +200,9 @@ describe('validateNavigationUrl — file:// URL-encoding', () => {
     const tmpHtml = path.join(TEMP_DIR, `hello world ${Date.now()}.html`);
     fs.writeFileSync(tmpHtml, '<html>ok</html>');
     try {
-      // Build an escaped file:// URL and verify it validates against the actual path
-      const encodedPath = tmpHtml.split('/').map(encodeURIComponent).join('/');
-      const url = `file://${encodedPath}`;
+      const url = pathToFileURL(tmpHtml).href;
       const result = await validateNavigationUrl(url);
-      expect(result.startsWith('file://')).toBe(true);
+      expect(result).toBe(url);
     } finally {
       fs.unlinkSync(tmpHtml);
     }
@@ -218,7 +213,7 @@ describe('validateNavigationUrl — file:// URL-encoding', () => {
     // Either "encoded /" rejection OR "Path must be within" safe-dirs rejection is acceptable.
     await expect(
       validateNavigationUrl('file:///tmp/safe%2F..%2Fetc/passwd')
-    ).rejects.toThrow(/encoded \/|Path must be within/i);
+    ).rejects.toThrow(/encoded .*characters|Path must be within/i);
   });
 });
 

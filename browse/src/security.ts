@@ -237,7 +237,7 @@ export interface AttemptRecord {
   gstackVersion?: string;
 }
 
-const SECURITY_DIR = path.join(os.homedir(), '.gstack', 'security');
+const SECURITY_DIR = process.env.GSTACK_SECURITY_DIR || path.join(os.homedir(), '.gstack', 'security');
 const ATTEMPTS_LOG = path.join(SECURITY_DIR, 'attempts.jsonl');
 const SALT_FILE = path.join(SECURITY_DIR, 'device-salt');
 const MAX_LOG_BYTES = 10 * 1024 * 1024; // 10MB rotate threshold (eng review 4.1)
