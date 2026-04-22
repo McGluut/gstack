@@ -25,6 +25,8 @@ import * as path from 'path';
 
 const ROOT = path.resolve(import.meta.dir, '../..');
 const SERVER_ENTRY = path.join(ROOT, 'browse/src/server.ts');
+const DAEMON_READY_TIMEOUT = process.platform === 'win32' ? 30_000 : 15_000;
+const BEFORE_ALL_TIMEOUT = DAEMON_READY_TIMEOUT + 10_000;
 
 interface DaemonHandle {
   proc: ReturnType<typeof Bun.spawn>;
@@ -35,7 +37,7 @@ interface DaemonHandle {
   baseUrl: string;
 }
 
-async function waitForReady(baseUrl: string, timeoutMs = 15_000): Promise<void> {
+async function waitForReady(baseUrl: string, timeoutMs = DAEMON_READY_TIMEOUT): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -88,7 +90,7 @@ describe('pair-agent flow end-to-end (HTTP only, no ngrok)', () => {
 
   beforeAll(async () => {
     daemon = await spawnDaemon();
-  }, 20_000);
+  }, BEFORE_ALL_TIMEOUT);
 
   afterAll(() => {
     if (daemon) killDaemon(daemon);

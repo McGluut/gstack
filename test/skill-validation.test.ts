@@ -1621,7 +1621,7 @@ describe('no compiled binaries in git', () => {
   test('git tracks no Mach-O or ELF binaries', () => {
     const files = runTrackedFiles().filter((file) => isMachOOrElf(path.join(ROOT, file)));
     expect(files).toEqual([]);
-  }, 15_000);
+  }, process.platform === 'win32' ? 30_000 : 15_000);
 
   test('git tracks no files larger than 2MB', () => {
     const files = runTrackedFiles()

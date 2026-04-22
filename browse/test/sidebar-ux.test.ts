@@ -564,11 +564,13 @@ describe('per-tab chat context (server.ts)', () => {
   const serverSrc = fs.readFileSync(path.join(ROOT, 'src', 'server.ts'), 'utf-8');
 
   test('/sidebar-chat accepts tabId query param', () => {
+    const handlerStart = serverSrc.indexOf("url.pathname === '/sidebar-chat'");
     const handler = serverSrc.slice(
-      serverSrc.indexOf("/sidebar-chat'"),
-      serverSrc.indexOf("/sidebar-chat'") + 600,
+      handlerStart,
+      handlerStart + 800,
     );
     expect(handler).toContain('tabId');
+    expect(handler).toContain("searchParams.get('tabId')");
   });
 
   test('addChatEntry takes a tabId parameter', () => {

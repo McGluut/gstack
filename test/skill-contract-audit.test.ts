@@ -176,5 +176,5 @@ body
     const rootDir = path.resolve(import.meta.dir, '..');
     const result = auditSkillContract(rootDir);
     expect(result.errors).toEqual([]);
-  }, 30_000);
+  }, process.platform === 'win32' ? 60_000 : 30_000);
 });

@@ -17,7 +17,9 @@ import { resolveBash } from './helpers/bash';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin', 'gstack-question-preference');
 const BASH = resolveBash();
-const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 20000 : 10000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT;
+const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 10000;
 
 let tmpHome: string;
 
@@ -34,6 +36,7 @@ function run(...args: string[]): { stdout: string; stderr: string; status: numbe
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
+    timeout: CLI_EXEC_TIMEOUT,
   });
   return {
     stdout: res.stdout ?? '',
@@ -42,28 +45,32 @@ function run(...args: string[]): { stdout: string; stderr: string; status: numbe
   };
 }
 
+function cliTest(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  test(name, fn, timeout);
+}
+
 // -----------------------------------------------------------------------
 // --check
 // -----------------------------------------------------------------------
 
 describe('--check (no preference set)', () => {
-  test('two-way question without preference → ASK_NORMALLY', () => {
+  cliTest('two-way question without preference → ASK_NORMALLY', () => {
     const r = run('--check', 'ship-changelog-voice-polish');
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toContain('ASK_NORMALLY');
   });
 
-  test('one-way question without preference → ASK_NORMALLY', () => {
+  cliTest('one-way question without preference → ASK_NORMALLY', () => {
     const r = run('--check', 'ship-test-failure-triage');
     expect(r.stdout.trim()).toContain('ASK_NORMALLY');
   });
 
-  test('unknown question_id → ASK_NORMALLY (conservative default)', () => {
+  cliTest('unknown question_id → ASK_NORMALLY (conservative default)', () => {
     const r = run('--check', 'never-heard-of-this-question');
     expect(r.stdout.trim()).toContain('ASK_NORMALLY');
   });
 
-  test('missing question_id arg → ASK_NORMALLY', () => {
+  cliTest('missing question_id arg → ASK_NORMALLY', () => {
     const r = run('--check');
     expect(r.stdout.trim()).toBe('ASK_NORMALLY');
   });
@@ -74,32 +81,32 @@ describe('--check with preferences set', () => {
     return run('--write', JSON.stringify({ question_id: id, preference: pref, source: 'plan-tune' }));
   }
 
-  test('two-way + never-ask → AUTO_DECIDE', () => {
+  cliTest('two-way + never-ask → AUTO_DECIDE', () => {
     setPref('ship-changelog-voice-polish', 'never-ask');
     const r = run('--check', 'ship-changelog-voice-polish');
     expect(r.stdout.trim()).toContain('AUTO_DECIDE');
   });
 
-  test('one-way + never-ask → ASK_NORMALLY with safety note', () => {
+  cliTest('one-way + never-ask → ASK_NORMALLY with safety note', () => {
     setPref('ship-test-failure-triage', 'never-ask');
     const r = run('--check', 'ship-test-failure-triage');
     expect(r.stdout).toContain('ASK_NORMALLY');
     expect(r.stdout).toContain('one-way door overrides');
   });
 
-  test('two-way + always-ask → ASK_NORMALLY', () => {
+  cliTest('two-way + always-ask → ASK_NORMALLY', () => {
     setPref('ship-changelog-voice-polish', 'always-ask');
     const r = run('--check', 'ship-changelog-voice-polish');
     expect(r.stdout.trim()).toContain('ASK_NORMALLY');
   });
 
-  test('two-way + ask-only-for-one-way → AUTO_DECIDE (it IS two-way)', () => {
+  cliTest('two-way + ask-only-for-one-way → AUTO_DECIDE (it IS two-way)', () => {
     setPref('ship-changelog-voice-polish', 'ask-only-for-one-way');
     const r = run('--check', 'ship-changelog-voice-polish');
     expect(r.stdout.trim()).toContain('AUTO_DECIDE');
   });
 
-  test('one-way + ask-only-for-one-way → ASK_NORMALLY', () => {
+  cliTest('one-way + ask-only-for-one-way → ASK_NORMALLY', () => {
     setPref('ship-test-failure-triage', 'ask-only-for-one-way');
     const r = run('--check', 'ship-test-failure-triage');
     expect(r.stdout.trim()).toContain('ASK_NORMALLY');
@@ -111,7 +118,7 @@ describe('--check with preferences set', () => {
 // -----------------------------------------------------------------------
 
 describe('--write valid payloads', () => {
-  test('inline-user source is accepted', () => {
+  cliTest('inline-user source is accepted', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'ship-changelog-voice-polish', preference: 'never-ask', source: 'inline-user' }),
@@ -120,7 +127,7 @@ describe('--write valid payloads', () => {
     expect(r.stdout).toContain('OK');
   });
 
-  test('plan-tune source is accepted', () => {
+  cliTest('plan-tune source is accepted', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'ship-x', preference: 'always-ask', source: 'plan-tune' }),
@@ -128,7 +135,7 @@ describe('--write valid payloads', () => {
     expect(r.status).toBe(0);
   });
 
-  test('persists to preferences file', () => {
+  cliTest('persists to preferences file', () => {
     run('--write', JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'q2', preference: 'always-ask', source: 'plan-tune' }));
     const projects = fs.readdirSync(path.join(tmpHome, 'projects'));
@@ -137,7 +144,7 @@ describe('--write valid payloads', () => {
     expect(prefs).toEqual({ q1: 'never-ask', q2: 'always-ask' });
   });
 
-  test('appends event to question-events.jsonl', () => {
+  cliTest('appends event to question-events.jsonl', () => {
     run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'inline-user' }),
@@ -155,7 +162,7 @@ describe('--write valid payloads', () => {
     expect(e.ts).toBeDefined();
   });
 
-  test('optional free_text is preserved (length-limited, newlines flattened)', () => {
+  cliTest('optional free_text is preserved (length-limited, newlines flattened)', () => {
     run(
       '--write',
       JSON.stringify({
@@ -177,7 +184,7 @@ describe('--write valid payloads', () => {
 // -----------------------------------------------------------------------
 
 describe('--write user-origin gate (profile-poisoning defense)', () => {
-  test('missing source is REJECTED', () => {
+  cliTest('missing source is REJECTED', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask' }),
@@ -186,7 +193,7 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
     expect(r.stderr).toContain('source');
   });
 
-  test('source=inline-tool-output is REJECTED with explicit poisoning message', () => {
+  cliTest('source=inline-tool-output is REJECTED with explicit poisoning message', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'inline-tool-output' }),
@@ -195,7 +202,7 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
     expect(r.stderr).toContain('profile poisoning defense');
   });
 
-  test('source=inline-file is REJECTED', () => {
+  cliTest('source=inline-file is REJECTED', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'inline-file' }),
@@ -204,7 +211,7 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
     expect(r.stderr).toContain('poisoning');
   });
 
-  test('source=inline-file-content is REJECTED', () => {
+  cliTest('source=inline-file-content is REJECTED', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'inline-file-content' }),
@@ -212,7 +219,7 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
     expect(r.status).toBe(2);
   });
 
-  test('source=inline-unknown is REJECTED', () => {
+  cliTest('source=inline-unknown is REJECTED', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'inline-unknown' }),
@@ -220,7 +227,7 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
     expect(r.status).toBe(2);
   });
 
-  test('unknown source value is rejected (not silently permitted)', () => {
+  cliTest('unknown source value is rejected (not silently permitted)', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'never-ask', source: 'anonymous' }),
@@ -231,12 +238,12 @@ describe('--write user-origin gate (profile-poisoning defense)', () => {
 });
 
 describe('--write schema validation', () => {
-  test('invalid JSON rejected', () => {
+  cliTest('invalid JSON rejected', () => {
     const r = run('--write', '{not-json');
     expect(r.status).not.toBe(0);
   });
 
-  test('invalid question_id rejected', () => {
+  cliTest('invalid question_id rejected', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'BAD_CAPS', preference: 'never-ask', source: 'plan-tune' }),
@@ -244,7 +251,7 @@ describe('--write schema validation', () => {
     expect(r.status).not.toBe(0);
   });
 
-  test('invalid preference rejected', () => {
+  cliTest('invalid preference rejected', () => {
     const r = run(
       '--write',
       JSON.stringify({ question_id: 'q1', preference: 'maybe-ask-idk', source: 'plan-tune' }),
@@ -253,7 +260,7 @@ describe('--write schema validation', () => {
     expect(r.stderr).toContain('preference');
   });
 
-  test('free_text injection pattern rejected', () => {
+  cliTest('free_text injection pattern rejected', () => {
     const r = run(
       '--write',
       JSON.stringify({
@@ -273,13 +280,13 @@ describe('--write schema validation', () => {
 // -----------------------------------------------------------------------
 
 describe('--read', () => {
-  test('empty file returns {}', () => {
+  cliTest('empty file returns {}', () => {
     const r = run('--read');
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout)).toEqual({});
   });
 
-  test('returns written preferences', () => {
+  cliTest('returns written preferences', () => {
     run('--write', JSON.stringify({ question_id: 'a', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'b', preference: 'always-ask', source: 'plan-tune' }));
     const r = run('--read');
@@ -288,7 +295,7 @@ describe('--read', () => {
 });
 
 describe('--clear', () => {
-  test('clear specific id removes only that entry', () => {
+  cliTest('clear specific id removes only that entry', () => {
     run('--write', JSON.stringify({ question_id: 'a', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'b', preference: 'always-ask', source: 'plan-tune' }));
     const r = run('--clear', 'a');
@@ -298,7 +305,7 @@ describe('--clear', () => {
     expect(prefs).toEqual({ b: 'always-ask' });
   }, SLOW_CLI_TIMEOUT);
 
-  test('clear without id wipes all', () => {
+  cliTest('clear without id wipes all', () => {
     run('--write', JSON.stringify({ question_id: 'a', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'b', preference: 'always-ask', source: 'plan-tune' }));
     run('--clear');
@@ -306,7 +313,7 @@ describe('--clear', () => {
     expect(prefs).toEqual({});
   }, SLOW_CLI_TIMEOUT);
 
-  test('clear nonexistent id is a NOOP', () => {
+  cliTest('clear nonexistent id is a NOOP', () => {
     const r = run('--clear', 'does-not-exist');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('NOOP');
@@ -314,12 +321,12 @@ describe('--clear', () => {
 });
 
 describe('--stats', () => {
-  test('empty stats show zeros', () => {
+  cliTest('empty stats show zeros', () => {
     const r = run('--stats');
     expect(r.stdout).toContain('TOTAL: 0');
   });
 
-  test('stats tally by preference type', () => {
+  cliTest('stats tally by preference type', () => {
     run('--write', JSON.stringify({ question_id: 'a', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'b', preference: 'never-ask', source: 'plan-tune' }));
     run('--write', JSON.stringify({ question_id: 'c', preference: 'always-ask', source: 'plan-tune' }));

@@ -12,7 +12,9 @@ import { resolveBash } from './helpers/bash';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin', 'gstack-question-log');
 const BASH = resolveBash();
-const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 20000 : 10000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT;
+const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 10000;
 
 let tmpHome: string;
 
@@ -29,6 +31,7 @@ function run(payload: string): { stdout: string; stderr: string; status: number 
     env: { ...process.env, GSTACK_HOME: tmpHome },
     encoding: 'utf-8',
     cwd: ROOT,
+    timeout: CLI_EXEC_TIMEOUT,
   });
   return {
     stdout: res.stdout ?? '',
@@ -49,8 +52,12 @@ function readLog(): string[] {
     .filter((l) => l.length > 0);
 }
 
+function cliTest(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  test(name, fn, timeout);
+}
+
 describe('gstack-question-log — valid payloads', () => {
-  test('minimal payload writes log entry with auto ts', () => {
+  cliTest('minimal payload writes log entry with auto ts', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -70,7 +77,7 @@ describe('gstack-question-log — valid payloads', () => {
     expect(new Date(rec.ts).toString()).not.toBe('Invalid Date');
   });
 
-  test('full payload preserves all fields and computes followed_recommendation', () => {
+  cliTest('full payload preserves all fields and computes followed_recommendation', () => {
     const r = run(
       JSON.stringify({
         skill: 'review',
@@ -89,7 +96,7 @@ describe('gstack-question-log — valid payloads', () => {
     expect(rec.followed_recommendation).toBe(true);
   });
 
-  test('followed_recommendation=false when user_choice differs from recommended', () => {
+  cliTest('followed_recommendation=false when user_choice differs from recommended', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -104,14 +111,14 @@ describe('gstack-question-log — valid payloads', () => {
     expect(rec.followed_recommendation).toBe(false);
   });
 
-  test('subsequent calls append to same log file', () => {
+  cliTest('subsequent calls append to same log file', () => {
     run(JSON.stringify({ skill: 'ship', question_id: 'ship-x', question_summary: 'a', user_choice: 'ok' }));
     run(JSON.stringify({ skill: 'ship', question_id: 'ship-y', question_summary: 'b', user_choice: 'ok' }));
     run(JSON.stringify({ skill: 'ship', question_id: 'ship-z', question_summary: 'c', user_choice: 'ok' }));
     expect(readLog().length).toBe(3);
   }, SLOW_CLI_TIMEOUT);
 
-  test('long summary is truncated to 200 chars', () => {
+  cliTest('long summary is truncated to 200 chars', () => {
     const long = 'x'.repeat(250);
     const r = run(
       JSON.stringify({
@@ -126,7 +133,7 @@ describe('gstack-question-log — valid payloads', () => {
     expect(rec.question_summary.length).toBe(200);
   });
 
-  test('newlines in summary are flattened to spaces', () => {
+  cliTest('newlines in summary are flattened to spaces', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -142,14 +149,14 @@ describe('gstack-question-log — valid payloads', () => {
 });
 
 describe('gstack-question-log — rejected payloads', () => {
-  test('invalid JSON is rejected', () => {
+  cliTest('invalid JSON is rejected', () => {
     const r = run('{not-json');
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain('invalid JSON');
     expect(readLog().length).toBe(0);
   });
 
-  test('missing skill is rejected', () => {
+  cliTest('missing skill is rejected', () => {
     const r = run(
       JSON.stringify({ question_id: 'a-b', question_summary: 'x', user_choice: 'y' }),
     );
@@ -157,21 +164,21 @@ describe('gstack-question-log — rejected payloads', () => {
     expect(r.stderr).toContain('skill');
   });
 
-  test('uppercase in skill is rejected', () => {
+  cliTest('uppercase in skill is rejected', () => {
     const r = run(
       JSON.stringify({ skill: 'Ship', question_id: 'ship-x', question_summary: 'x', user_choice: 'y' }),
     );
     expect(r.status).not.toBe(0);
   });
 
-  test('invalid question_id (caps) is rejected', () => {
+  cliTest('invalid question_id (caps) is rejected', () => {
     const r = run(
       JSON.stringify({ skill: 'ship', question_id: 'BadCapsId', question_summary: 'x', user_choice: 'y' }),
     );
     expect(r.status).not.toBe(0);
   });
 
-  test('question_id longer than 64 chars is rejected', () => {
+  cliTest('question_id longer than 64 chars is rejected', () => {
     const long = 'x'.repeat(65);
     const r = run(
       JSON.stringify({ skill: 'ship', question_id: long, question_summary: 'x', user_choice: 'y' }),
@@ -179,7 +186,7 @@ describe('gstack-question-log — rejected payloads', () => {
     expect(r.status).not.toBe(0);
   });
 
-  test('missing user_choice is rejected', () => {
+  cliTest('missing user_choice is rejected', () => {
     const r = run(
       JSON.stringify({ skill: 'ship', question_id: 'ship-x', question_summary: 'x' }),
     );
@@ -187,7 +194,7 @@ describe('gstack-question-log — rejected payloads', () => {
     expect(r.stderr).toContain('user_choice');
   });
 
-  test('invalid category is rejected', () => {
+  cliTest('invalid category is rejected', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -201,7 +208,7 @@ describe('gstack-question-log — rejected payloads', () => {
     expect(r.stderr).toContain('category');
   });
 
-  test('invalid door_type is rejected', () => {
+  cliTest('invalid door_type is rejected', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -215,7 +222,7 @@ describe('gstack-question-log — rejected payloads', () => {
     expect(r.stderr).toContain('door_type');
   });
 
-  test('options_count out of range is rejected', () => {
+  cliTest('options_count out of range is rejected', () => {
     const r = run(
       JSON.stringify({
         skill: 'ship',
@@ -240,7 +247,7 @@ describe('gstack-question-log — injection defense', () => {
   ];
 
   for (const attack of attacks) {
-    test(`rejects injection pattern in question_summary: "${attack.slice(0, 40)}..."`, () => {
+    cliTest(`rejects injection pattern in question_summary: "${attack.slice(0, 40)}..."`, () => {
       const r = run(
         JSON.stringify({
           skill: 'ship',

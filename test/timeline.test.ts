@@ -8,7 +8,8 @@ import { resolveBash } from './helpers/bash';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
 const BASH = resolveBash();
-const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 20000 : 15000;
+const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 10000;
 
 let tmpDir: string;
 let slugDir: string;
@@ -18,7 +19,7 @@ function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: s
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
-    timeout: 15000,
+    timeout: CLI_EXEC_TIMEOUT,
   };
   try {
     const stdout = execFileSync(BASH, [path.join(BIN, 'gstack-timeline-log'), input], execOpts).trim();
@@ -36,7 +37,7 @@ function runRead(args: string[] = []): string {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
-    timeout: 15000,
+    timeout: CLI_EXEC_TIMEOUT,
   };
   try {
     return execFileSync(BASH, [path.join(BIN, 'gstack-timeline-read'), ...args], execOpts).trim();

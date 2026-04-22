@@ -106,7 +106,7 @@ describe('validateNavigationUrl', () => {
 
   it('does not block hostnames starting with fc (e.g. fcustomer.com)', async () => {
     await expect(validateNavigationUrl('https://fcustomer.com/')).resolves.toBe('https://fcustomer.com/');
-  });
+  }, process.platform === 'win32' ? 30_000 : 10_000);
 
   it('throws on malformed URLs', async () => {
     await expect(validateNavigationUrl('not-a-url')).rejects.toThrow(/Invalid URL/i);

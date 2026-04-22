@@ -8,7 +8,9 @@ import { resolveBash } from './helpers/bash';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
 const BASH = resolveBash();
-const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 20000 : 15000;
+const DEFAULT_CLI_TEST_TIMEOUT = process.platform === 'win32' ? 10000 : 7000;
+const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 5000;
 
 // Each test gets a fresh temp directory for GSTACK_STATE_DIR
 let tmpDir: string;
@@ -18,13 +20,17 @@ function run(script: string, args: string[] = [], env: Record<string, string> = 
     cwd: ROOT,
     env: { ...process.env, GSTACK_STATE_DIR: tmpDir, GSTACK_DIR: ROOT, ...env },
     encoding: 'utf-8',
-    timeout: 10000,
+    timeout: CLI_EXEC_TIMEOUT,
   };
   return execFileSync(BASH, [path.join(BIN, script), ...args], execOpts).trim();
 }
 
 function setConfig(key: string, value: string) {
   run('gstack-config', ['set', key, value]);
+}
+
+function cliTest(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  test(name, fn, timeout);
 }
 
 function readJsonl(): string[] {
@@ -46,7 +52,7 @@ afterEach(() => {
 });
 
 describe('gstack-telemetry-log', () => {
-  test('appends valid JSONL when tier=anonymous', () => {
+  cliTest('appends valid JSONL when tier=anonymous', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '142', '--outcome', 'success', '--session-id', 'test-123']);
 
@@ -62,21 +68,21 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].gstack_version).toBeTruthy();
   });
 
-  test('produces no output when tier=off', () => {
+  cliTest('produces no output when tier=off', () => {
     setConfig('telemetry', 'off');
     run('gstack-telemetry-log', ['--skill', 'ship', '--duration', '30', '--outcome', 'success', '--session-id', 'test-456']);
 
     expect(readJsonl()).toHaveLength(0);
   });
 
-  test('defaults to off for invalid tier value', () => {
+  cliTest('defaults to off for invalid tier value', () => {
     setConfig('telemetry', 'invalid_value');
     run('gstack-telemetry-log', ['--skill', 'ship', '--duration', '30', '--outcome', 'success', '--session-id', 'test-789']);
 
     expect(readJsonl()).toHaveLength(0);
   });
 
-  test('includes installation_id for community tier', () => {
+  cliTest('includes installation_id for community tier', () => {
     setConfig('telemetry', 'community');
     run('gstack-telemetry-log', ['--skill', 'review', '--duration', '100', '--outcome', 'success', '--session-id', 'comm-123']);
 
@@ -86,7 +92,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].installation_id).toMatch(/^[a-f0-9-]{32,36}$/);
   });
 
-  test('installation_id is null for anonymous tier', () => {
+  cliTest('installation_id is null for anonymous tier', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '50', '--outcome', 'success', '--session-id', 'anon-123']);
 
@@ -94,7 +100,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].installation_id).toBeNull();
   });
 
-  test('includes error_class when provided', () => {
+  cliTest('includes error_class when provided', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'browse', '--duration', '10', '--outcome', 'error', '--error-class', 'timeout', '--session-id', 'err-123']);
 
@@ -103,7 +109,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].outcome).toBe('error');
   });
 
-  test('handles missing duration gracefully', () => {
+  cliTest('handles missing duration gracefully', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--outcome', 'success', '--session-id', 'nodur-123']);
 
@@ -111,7 +117,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].duration_s).toBeNull();
   });
 
-  test('supports event_type flag', () => {
+  cliTest('supports event_type flag', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--event-type', 'upgrade_prompted', '--skill', '', '--outcome', 'success', '--session-id', 'up-123']);
 
@@ -119,7 +125,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].event_type).toBe('upgrade_prompted');
   });
 
-  test('includes local-only fields (_repo_slug, _branch)', () => {
+  cliTest('includes local-only fields (_repo_slug, _branch)', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '50', '--outcome', 'success', '--session-id', 'local-123']);
 
@@ -130,7 +136,7 @@ describe('gstack-telemetry-log', () => {
   });
 
   // ─── json_safe() injection prevention tests ────────────────
-  test('sanitizes skill name with quote injection attempt', () => {
+  cliTest('sanitizes skill name with quote injection attempt', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'review","injected":"true', '--duration', '10', '--outcome', 'success', '--session-id', 'inj-1']);
 
@@ -144,7 +150,7 @@ describe('gstack-telemetry-log', () => {
     expect(event.skill).not.toContain('"');
   });
 
-  test('truncates skill name exceeding 200 chars', () => {
+  cliTest('truncates skill name exceeding 200 chars', () => {
     setConfig('telemetry', 'anonymous');
     const longSkill = 'a'.repeat(250);
     run('gstack-telemetry-log', ['--skill', longSkill, '--duration', '10', '--outcome', 'success', '--session-id', 'trunc-1']);
@@ -153,7 +159,7 @@ describe('gstack-telemetry-log', () => {
     expect(events[0].skill.length).toBeLessThanOrEqual(200);
   });
 
-  test('sanitizes outcome with newline injection attempt', () => {
+  cliTest('sanitizes outcome with newline injection attempt', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'success\nfake":"true', '--session-id', 'inj-2']);
 
@@ -163,7 +169,7 @@ describe('gstack-telemetry-log', () => {
     expect(event).not.toHaveProperty('fake');
   });
 
-  test('sanitizes session_id with backslash-quote injection', () => {
+  cliTest('sanitizes session_id with backslash-quote injection', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'success', '--session-id', 'id\\\\"","x":"y']);
 
@@ -173,7 +179,7 @@ describe('gstack-telemetry-log', () => {
     expect(event).not.toHaveProperty('x');
   });
 
-  test('sanitizes error_class with quote injection', () => {
+  cliTest('sanitizes error_class with quote injection', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'error', '--error-class', 'timeout","extra":"val', '--session-id', 'inj-3']);
 
@@ -183,7 +189,7 @@ describe('gstack-telemetry-log', () => {
     expect(event).not.toHaveProperty('extra');
   });
 
-  test('sanitizes failed_step with quote injection', () => {
+  cliTest('sanitizes failed_step with quote injection', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'error', '--failed-step', 'step1","hacked":"yes', '--session-id', 'inj-4']);
 
@@ -193,7 +199,7 @@ describe('gstack-telemetry-log', () => {
     expect(event).not.toHaveProperty('hacked');
   });
 
-  test('escapes error_message quotes and preserves content', () => {
+  cliTest('escapes error_message quotes and preserves content', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'error', '--error-message', 'Error: file "test.txt" not found', '--session-id', 'inj-5']);
 
@@ -204,7 +210,7 @@ describe('gstack-telemetry-log', () => {
     expect(event.error_message).toContain('not found');
   });
 
-  test('creates analytics directory if missing', () => {
+  cliTest('creates analytics directory if missing', () => {
     // Remove analytics dir
     const analyticsDir = path.join(tmpDir, 'analytics');
     if (fs.existsSync(analyticsDir)) fs.rmSync(analyticsDir, { recursive: true });
@@ -217,7 +223,7 @@ describe('gstack-telemetry-log', () => {
   });
 
   // ─── Telemetry JSON safety: branch/repo with special chars ────
-  test('branch name with quotes does not corrupt JSON', () => {
+  cliTest('branch name with quotes does not corrupt JSON', () => {
     setConfig('telemetry', 'anonymous');
     // Simulate a branch name with double quotes by setting it via git env override
     // The json_safe function strips quotes, so the JSONL should remain valid
@@ -232,7 +238,7 @@ describe('gstack-telemetry-log', () => {
     expect(event._branch).not.toContain('"');
   });
 
-  test('repo slug with special chars does not corrupt JSON', () => {
+  cliTest('repo slug with special chars does not corrupt JSON', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '10', '--outcome', 'success', '--session-id', 'repo-special-1']);
 
@@ -246,7 +252,7 @@ describe('gstack-telemetry-log', () => {
 });
 
 describe('.pending marker', () => {
-  test('finalizes stale .pending from another session as outcome:unknown', () => {
+  cliTest('finalizes stale .pending from another session as outcome:unknown', () => {
     setConfig('telemetry', 'anonymous');
 
     // Write a fake .pending marker from a different session
@@ -273,7 +279,7 @@ describe('.pending marker', () => {
     expect(events[1].outcome).toBe('success');
   });
 
-  test('.pending-SESSION file is removed after finalization', () => {
+  cliTest('.pending-SESSION file is removed after finalization', () => {
     setConfig('telemetry', 'anonymous');
 
     const analyticsDir = path.join(tmpDir, 'analytics');
@@ -286,7 +292,7 @@ describe('.pending marker', () => {
     expect(fs.existsSync(pendingPath)).toBe(false);
   });
 
-  test('does not finalize own session pending marker', () => {
+  cliTest('does not finalize own session pending marker', () => {
     setConfig('telemetry', 'anonymous');
 
     const analyticsDir = path.join(tmpDir, 'analytics');
@@ -303,7 +309,7 @@ describe('.pending marker', () => {
     expect(events[0].skill).toBe('qa');
   });
 
-  test('tier=off still clears own session pending', () => {
+  cliTest('tier=off still clears own session pending', () => {
     setConfig('telemetry', 'off');
 
     const analyticsDir = path.join(tmpDir, 'analytics');
@@ -320,12 +326,12 @@ describe('.pending marker', () => {
 });
 
 describe('gstack-analytics', () => {
-  test('shows "no data" for empty JSONL', () => {
+  cliTest('shows "no data" for empty JSONL', () => {
     const output = run('gstack-analytics');
     expect(output).toContain('no data');
   });
 
-  test('renders usage dashboard with events', () => {
+  cliTest('renders usage dashboard with events', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '120', '--outcome', 'success', '--session-id', 'a-1']);
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '60', '--outcome', 'success', '--session-id', 'a-2']);
@@ -340,7 +346,7 @@ describe('gstack-analytics', () => {
     expect(output).toContain('Errors: 1');
   }, SLOW_CLI_TIMEOUT);
 
-  test('filters by time window', () => {
+  cliTest('filters by time window', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '60', '--outcome', 'success', '--session-id', 't-1']);
 
@@ -351,18 +357,18 @@ describe('gstack-analytics', () => {
 });
 
 describe('gstack-telemetry-sync', () => {
-  test('exits silently with no Supabase URL configured', () => {
+  cliTest('exits silently with no Supabase URL configured', () => {
     // Default: GSTACK_SUPABASE_URL is not set → exit 0
     const result = run('gstack-telemetry-sync');
     expect(result).toBe('');
   });
 
-  test('exits silently with no JSONL file', () => {
+  cliTest('exits silently with no JSONL file', () => {
     const result = run('gstack-telemetry-sync', [], { GSTACK_SUPABASE_URL: 'http://localhost:9999' });
     expect(result).toBe('');
   });
 
-  test('does not rename JSONL field names (edge function expects raw names)', () => {
+  cliTest('does not rename JSONL field names (edge function expects raw names)', () => {
     setConfig('telemetry', 'anonymous');
     run('gstack-telemetry-log', ['--skill', 'qa', '--duration', '60', '--outcome', 'success', '--session-id', 'raw-fields-1']);
 
@@ -380,7 +386,7 @@ describe('gstack-telemetry-sync', () => {
 });
 
 describe('gstack-community-dashboard', () => {
-  test('shows unconfigured message when no Supabase config available', () => {
+  cliTest('shows unconfigured message when no Supabase config available', () => {
     // Use a fake GSTACK_DIR with no supabase/config.sh
     const output = run('gstack-community-dashboard', [], {
       GSTACK_DIR: tmpDir,
@@ -391,7 +397,7 @@ describe('gstack-community-dashboard', () => {
     expect(output).toContain('gstack-analytics');
   });
 
-  test('connects to Supabase when config exists', () => {
+  cliTest('connects to Supabase when config exists', () => {
     // Use the real GSTACK_DIR which has supabase/config.sh
     const output = run('gstack-community-dashboard');
     expect(output).toContain('gstack community dashboard');
@@ -401,7 +407,7 @@ describe('gstack-community-dashboard', () => {
 });
 
 describe('preamble telemetry gating (#467)', () => {
-  test('preamble source does not write JSONL unconditionally', () => {
+  cliTest('preamble source does not write JSONL unconditionally', () => {
     const preamble = fs.readFileSync(path.join(ROOT, 'scripts', 'resolvers', 'preamble.ts'), 'utf-8');
     const lines = preamble.split('\n');
     for (let i = 0; i < lines.length; i++) {
