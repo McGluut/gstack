@@ -954,7 +954,7 @@ These rules auto-answer every intermediate question:
 3. **Pragmatic** — If two options fix the same thing, pick the cleaner one. 5 seconds choosing, not 5 minutes.
 4. **DRY** — Duplicates existing functionality? Reject. Reuse what exists.
 5. **Explicit over clever** — 10-line obvious fix > 200-line abstraction. Pick what a new contributor reads in 30 seconds.
-6. **Bias toward action** — Merge > review cycles > stale deliberation. Flag concerns but don't block.
+6. **Bias toward completed decisions** — once the major failure modes are named, prefer a clear recommendation over another ornamental review loop. Move the plan forward, but do not collapse user-owned premise or direction decisions into automation.
 
 **Conflict resolution (context-dependent tiebreakers):**
 - **CEO phase:** P1 (completeness) + P2 (boil lakes) dominate.
@@ -967,8 +967,8 @@ These rules auto-answer every intermediate question:
 
 Every auto-decision is classified:
 
-**Mechanical** — one clearly right answer. Auto-decide silently.
-Examples: run codex (always yes), run evals (always yes), reduce scope on a complete plan (always no).
+**Mechanical** — one clearly right answer within the current review contract and available prerequisites. Auto-decide silently.
+Examples: run codex when it is available and part of the review contract (yes), run relevant evals when the reviewed change touches them (yes), reduce scope on an otherwise complete plan without a stated user challenge (no).
 
 **Taste** — reasonable people could disagree. Auto-decide with recommendation, but surface at the final gate. Three natural sources:
 1. **Close approaches** — top two are both viable with different tradeoffs.
@@ -1012,16 +1012,20 @@ outputs from the prior phase are written before starting the next.
 
 ## What "Auto-Decide" Means
 
-Auto-decide replaces the USER'S judgment with the 6 principles. It does NOT replace
-the ANALYSIS. Every section in the loaded skill files must still be executed at the
-same depth as the interactive version. The only thing that changes is who answers the
-AskUserQuestion: you do, using the 6 principles, instead of the user.
+Auto-decide does NOT replace the user's ownership of the problem, goals, or challenge
+decisions. It replaces only the intermediate review choices that can be proxied
+honestly by the 6 principles. It does NOT replace the ANALYSIS. Every section in the
+loaded skill files must still be executed at the same depth as the interactive version.
+The only thing that changes is who answers the bounded review questions: you do, using
+the 6 principles, unless the decision is premise-level, user-direction-changing, or
+otherwise still owned by the user.
 
 **Two exceptions — never auto-decided:**
 1. Premises (Phase 1) — require human judgment about what problem to solve.
 2. User Challenges — when both models agree the user's stated direction should change
-   (merge, split, add, remove features/workflows). The user always has context models
-   lack. See Decision Classification above.
+   (merge, split, add, remove features/workflows). Keep the final direction with the
+   user because they may hold intent, external constraints, or context the models
+   cannot see. See Decision Classification above.
 
 **You MUST still:**
 - READ the actual code, diffs, and files each section references
@@ -1063,7 +1067,7 @@ instructions instead of reviewing the plan.
 Before doing anything, save the plan file's current state to an external file:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-')
 DATETIME=$(date +%Y%m%d-%H%M%S)
 echo "RESTORE_PATH=$HOME/.gstack/projects/$SLUG/${BRANCH}-autoplan-restore-${DATETIME}.md"
@@ -1088,7 +1092,7 @@ Then prepend a one-line HTML comment to the plan file:
 ### Step 2: Read context
 
 - Read CLAUDE.md, TODOS.md, git log -30, git diff against the base branch --stat
-- Discover design docs: `ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null | head -1`
+- Discover design docs in the gstack project store: `ls -t "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"/*-design-*.md 2>/dev/null | head -1`
 - Detect UI scope: grep the plan for view/rendering terms (component, screen, form,
   button, modal, layout, dashboard, sidebar, nav, dialog). Require 2+ matches. Exclude
   false positives ("page" alone, "UI" in acronyms).
@@ -1103,11 +1107,11 @@ Then prepend a one-line HTML comment to the plan file:
 
 ### Step 3: Load skill files from disk
 
-Read each file using the Read tool:
-- `~/.claude/skills/gstack/plan-ceo-review/SKILL.md`
-- `~/.claude/skills/gstack/plan-design-review/SKILL.md` (only if UI scope detected)
-- `~/.claude/skills/gstack/plan-eng-review/SKILL.md`
-- `~/.claude/skills/gstack/plan-devex-review/SKILL.md` (only if DX scope detected)
+Read each installed skill file using the Read tool:
+- `/plan-ceo-review` (`$GSTACK_ROOT/plan-ceo-review/SKILL.md`)
+- `/plan-design-review` (`$GSTACK_ROOT/plan-design-review/SKILL.md`) only if UI scope detected
+- `/plan-eng-review` (`$GSTACK_ROOT/plan-eng-review/SKILL.md`)
+- `/plan-devex-review` (`$GSTACK_ROOT/plan-devex-review/SKILL.md`) only if DX scope detected
 
 **Section skip list — when following a loaded skill file, SKIP these sections
 (they are already handled by /autoplan):**
@@ -1139,8 +1143,10 @@ source it once here and the helper functions stay in scope for the rest of the
 workflow.
 
 ```bash
-_TEL=$(~/.claude/skills/gstack/bin/gstack-config get telemetry 2>/dev/null || echo off)
-source ~/.claude/skills/gstack/bin/gstack-codex-probe
+GSTACK_CONFIG_BIN="${GSTACK_BIN:+$GSTACK_BIN/gstack-config}"
+GSTACK_CODEX_PROBE="${GSTACK_BIN:+$GSTACK_BIN/gstack-codex-probe}"
+_TEL=$([ -x "$GSTACK_CONFIG_BIN" ] && "$GSTACK_CONFIG_BIN" get telemetry 2>/dev/null || echo off)
+[ -f "$GSTACK_CODEX_PROBE" ] && source "$GSTACK_CODEX_PROBE"
 
 # Check Codex binary. If missing, tag the degradation matrix and continue
 # with Claude subagent only (autoplan's existing degradation fallback).
@@ -1179,7 +1185,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
 - Scope expansion: in blast radius + <1d CC → approve (P2). Outside → defer to TODOS.md (P3).
   Duplicates → reject (P4). Borderline (3-5 files) → mark TASTE DECISION.
 - All 10 review sections: run fully, auto-decide each issue, log every decision.
-- Dual voices: always run BOTH Claude subagent AND Codex if available (P6).
+- Dual voices: prefer BOTH Claude subagent AND Codex for consequential or
+  ambiguous plans (P6). If one voice is unavailable, or the plan is narrow and
+  low-risk, proceed with the best available voice and name the missing pressure.
   Run them sequentially in foreground. First the Claude subagent (Agent tool,
   foreground — do NOT use run_in_background), then Codex (Bash). Both must
   complete before building the consensus table.
@@ -1299,7 +1307,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
 - Structural issues (missing states, broken hierarchy): auto-fix (P5)
 - Aesthetic/taste issues: mark TASTE DECISION
 - Design system alignment: auto-fix if DESIGN.md exists and fix is obvious
-- Dual voices: always run BOTH Claude subagent AND Codex if available (P6).
+- Dual voices: prefer BOTH Claude subagent AND Codex for consequential or
+  ambiguous plans (P6). If one voice is unavailable, or the plan is narrow and
+  low-risk, proceed with the best available voice and name the missing pressure.
 
   **Codex design voice** (via Bash):
   ```bash
@@ -1380,7 +1390,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
 
 **Override rules:**
 - Scope challenge: never reduce (P2)
-- Dual voices: always run BOTH Claude subagent AND Codex if available (P6).
+- Dual voices: prefer BOTH Claude subagent AND Codex for consequential or
+  ambiguous plans (P6). If one voice is unavailable, or the plan is narrow and
+  low-risk, proceed with the best available voice and name the missing pressure.
 
   **Codex eng voice** (via Bash):
   ```bash
@@ -1419,7 +1431,7 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
 
 - Architecture choices: explicit over clever (P5). If codex disagrees with valid reason → TASTE DECISION. Scope changes both models agree on → USER CHALLENGE.
 - Evals: always include all relevant suites (P1)
-- Test plan: generate artifact at `~/.gstack/projects/$SLUG/{user}-{branch}-test-plan-{datetime}.md`
+- Test plan: generate artifact under `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/` using the branch-safe name from `gstack-slug`
 - TODOS.md: collect all deferred scope expansions from Phase 1, auto-write
 
 **Required execution checklist (Eng):**
@@ -1501,7 +1513,9 @@ Log: "Phase 3.5 skipped — no developer-facing scope detected."
 - Error message quality: always require problem + cause + fix (P1, completeness)
 - API/CLI naming: consistency wins over cleverness (P5)
 - DX taste decisions (e.g., opinionated defaults vs flexibility): mark TASTE DECISION
-- Dual voices: always run BOTH Claude subagent AND Codex if available (P6).
+- Dual voices: prefer BOTH Claude subagent AND Codex for consequential or
+  ambiguous plans (P6). If one voice is unavailable, or the plan is narrow and
+  low-risk, proceed with the best available voice and name the missing pressure.
 
   **Codex DX voice** (via Bash):
   ```bash
@@ -1635,7 +1649,7 @@ produced. Check the plan file and conversation for each item.
 - [ ] Scope challenge with actual code analysis (not just "scope is fine")
 - [ ] Architecture ASCII diagram produced
 - [ ] Test diagram mapping codepaths to test coverage
-- [ ] Test plan artifact written to disk at ~/.gstack/projects/$SLUG/
+- [ ] Test plan artifact written to disk under `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/`
 - [ ] "NOT in scope" section written
 - [ ] "What already exists" section written
 - [ ] Failure modes registry with critical gap assessment
@@ -1750,37 +1764,38 @@ STATUS is "clean" if no unresolved issues, "issues_open" otherwise.
 ```bash
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null)
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+GSTACK_REVIEW_LOG="${GSTACK_BIN:+$GSTACK_BIN/gstack-review-log}"
 
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-ceo-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"critical_gaps":N,"mode":"SELECTIVE_EXPANSION","via":"autoplan","commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"plan-ceo-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"critical_gaps":N,"mode":"SELECTIVE_EXPANSION","via":"autoplan","commit":"'"$COMMIT"'"}'
 
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-eng-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"critical_gaps":N,"issues_found":N,"mode":"FULL_REVIEW","via":"autoplan","commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"plan-eng-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"critical_gaps":N,"issues_found":N,"mode":"FULL_REVIEW","via":"autoplan","commit":"'"$COMMIT"'"}'
 ```
 
 If Phase 2 ran (UI scope):
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-design-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"via":"autoplan","commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"plan-design-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","unresolved":N,"via":"autoplan","commit":"'"$COMMIT"'"}'
 ```
 
 If Phase 3.5 ran (DX scope):
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-devex-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","initial_score":N,"overall_score":N,"product_type":"TYPE","tthw_current":"TTHW","tthw_target":"TARGET","unresolved":N,"via":"autoplan","commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"plan-devex-review","timestamp":"'"$TIMESTAMP"'","status":"STATUS","initial_score":N,"overall_score":N,"product_type":"TYPE","tthw_current":"TTHW","tthw_target":"TARGET","unresolved":N,"via":"autoplan","commit":"'"$COMMIT"'"}'
 ```
 
 Dual voice logs (one per phase that ran):
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"ceo","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"ceo","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
 
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"eng","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"eng","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
 ```
 
 If Phase 2 ran (UI scope), also log:
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"design","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"design","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
 ```
 
 If Phase 3.5 ran (DX scope), also log:
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"dx","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
+[ -x "$GSTACK_REVIEW_LOG" ] && "$GSTACK_REVIEW_LOG" '{"skill":"autoplan-voices","timestamp":"'"$TIMESTAMP"'","status":"STATUS","source":"SOURCE","phase":"dx","via":"autoplan","consensus_confirmed":N,"consensus_disagree":N,"commit":"'"$COMMIT"'"}'
 ```
 
 SOURCE = "codex+subagent", "codex-only", "subagent-only", or "unavailable".

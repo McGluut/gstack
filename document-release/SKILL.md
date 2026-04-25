@@ -1000,8 +1000,9 @@ preserved them. This skill must NEVER do that.
 1. Read the entire CHANGELOG.md first. Understand what is already there.
 2. Only modify wording within existing entries. Never delete, reorder, or replace entries.
 3. Never regenerate a CHANGELOG entry from scratch. The entry was written by `/ship` from the
-   actual diff and commit history. It is the source of truth. You are polishing prose, not
-   rewriting history.
+   actual diff and commit history. Treat it as the primary shipped record, then cross-check the
+   current diff and commit history before assuming every detail is complete. You are polishing
+   prose, not rewriting history.
 4. If an entry looks wrong or incomplete, use AskUserQuestion — do NOT silently fix it.
 5. Use Edit tool with exact `old_string` matches — never use Write to overwrite CHANGELOG.md.
 
@@ -1036,7 +1037,7 @@ After auditing each file individually, do a cross-doc consistency pass:
 
 ## Step 7: TODOS.md Cleanup
 
-This is a second pass that complements `/ship`'s Step 5.5. Read `.claude/skills/review/TODOS-format.md` (if
+This is a second pass that complements `/ship`'s Step 5.5. Read `${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/TODOS-format.md` (if
 available) for the canonical TODO item format.
 
 If TODOS.md does not exist, skip this step.

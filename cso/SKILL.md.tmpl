@@ -6,8 +6,8 @@ description: |
   Chief Security Officer mode. Infrastructure-first security audit: secrets archaeology,
   dependency supply chain, CI/CD pipeline security, LLM/AI security, skill supply chain
   scanning, plus OWASP Top 10, STRIDE threat modeling, and active verification.
-  Two modes: daily (zero-noise, 8/10 confidence gate) and comprehensive (monthly deep
-  scan, 2/10 bar). Trend tracking across audit runs.
+  Two modes: daily (low-noise, 8/10 confidence gate) and comprehensive (monthly deep
+  scan, lower-confidence exploratory pass). Trend tracking across audit runs.
   Use when: "security audit", "threat model", "pentest review", "OWASP", "CSO review". (gstack)
 voice-triggers:
   - "see-so"
@@ -48,7 +48,7 @@ When the user types `/cso`, run this skill.
 
 ## Arguments
 - `/cso` — full daily audit (all phases, 8/10 confidence gate)
-- `/cso --comprehensive` — monthly deep scan (all phases, 2/10 bar — surfaces more)
+- `/cso --comprehensive` — monthly deep scan (all phases, exploratory 2/10 bar — surfaces more tentative leads)
 - `/cso --infra` — infrastructure-only (Phases 0-6, 12-14)
 - `/cso --code` — code-only (Phases 0-1, 7, 9-11, 12-14)
 - `/cso --skills` — skill supply chain only (Phases 0, 8, 12-14)
@@ -67,7 +67,7 @@ When the user types `/cso`, run this skill.
 ## Mode Resolution
 
 1. If no flags → run ALL phases 0-14, daily mode (8/10 confidence gate).
-2. If `--comprehensive` → run ALL phases 0-14, comprehensive mode (2/10 confidence gate). Combinable with scope flags.
+2. If `--comprehensive` → run ALL phases 0-14, comprehensive mode (2/10 exploratory confidence gate). Combinable with scope flags.
 3. Scope flags (`--infra`, `--code`, `--skills`, `--supply-chain`, `--owasp`, `--scope`) are **mutually exclusive**. If multiple scope flags are passed, **error immediately**: "Error: --infra and --code are mutually exclusive. Pick one scope flag, or run `/cso` with no flags for a full audit." Do NOT silently pick one — security tooling must never ignore user intent.
 4. `--diff` is combinable with ANY scope flag AND with `--comprehensive`.
 5. When `--diff` is active, each phase constrains scanning to files/configs changed on the current branch vs the base branch. For git history scanning (Phase 2), `--diff` limits to commits on the current branch only.
@@ -415,7 +415,7 @@ Before producing findings, run every candidate through this filter.
 - 8: Clear vulnerability pattern with known exploitation methods. Minimum bar.
 - Below 8: Do not report.
 
-**Comprehensive mode (`/cso --comprehensive`):** 2/10 confidence gate. Filter true noise only (test fixtures, documentation, placeholders) but include anything that MIGHT be a real issue. Flag these as `TENTATIVE` to distinguish from confirmed findings.
+**Comprehensive mode (`/cso --comprehensive`):** 2/10 exploratory confidence gate. Filter true noise only (test fixtures, documentation, placeholders) but include lower-confidence issues that may warrant manual follow-up. Flag these as `TENTATIVE` and keep them clearly separate from confirmed findings.
 
 **Hard exclusions — automatically discard findings matching these:**
 
@@ -627,10 +627,10 @@ If `.gstack/` is not in `.gitignore`, note it in findings — security reports s
 ## Important Rules
 
 - **Think like an attacker, report like a defender.** Show the exploit path, then the fix.
-- **Zero noise is more important than zero misses.** A report with 3 real findings beats one with 3 real + 12 theoretical. Users stop reading noisy reports.
+- **Mode discipline matters.** Daily mode optimizes for low-noise, high-confidence findings. Comprehensive mode is allowed to surface more tentative leads, but it must keep them explicitly labeled and separated from confirmed findings.
 - **No security theater.** Don't flag theoretical risks with no realistic exploit path.
 - **Severity calibration matters.** CRITICAL needs a realistic exploitation scenario.
-- **Confidence gate is absolute.** Daily mode: below 8/10 = do not report. Period.
+- **Confidence gate is mode-specific.** Daily mode: below 8/10 = do not report. Comprehensive mode may include lower-confidence items only when they are clearly labeled `TENTATIVE` and not presented as proven vulnerabilities.
 - **Read-only.** Never modify code. Produce findings and recommendations only.
 - **Assume competent attackers.** Security through obscurity doesn't work.
 - **Check the obvious first.** Hardcoded credentials, missing auth, SQL injection are still the top real-world vectors.

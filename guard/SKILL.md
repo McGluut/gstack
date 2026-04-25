@@ -39,7 +39,9 @@ hooks:
 # /guard — Full Safety Mode
 
 Activates both destructive command warnings and directory-scoped edit restrictions.
-This is the combination of `/careful` + `/freeze` in a single command.
+This is the combination of `/careful` + `/freeze` in a single command. Treat it
+as stronger accident prevention, not as a full sandbox or proof that every
+command inside the boundary is safe.
 
 ## Quick Contract
 
@@ -88,6 +90,7 @@ Tell the user:
 - "**Guard mode active.** Two protections are now running:"
 - "1. **Destructive command warnings** — rm -rf, DROP TABLE, force-push, etc. will warn before executing (you can override)"
 - "2. **Edit boundary** — file edits restricted to `<path>/`. Edits outside this directory are blocked."
+- "These protections reduce common accidental damage, but they do not replace judgment or create a full security boundary."
 - "To remove the edit boundary, run `/unfreeze`. To deactivate everything, end the session."
 
 ## What's protected

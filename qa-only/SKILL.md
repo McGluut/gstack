@@ -825,7 +825,7 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 # /qa-only: Report-Only QA Testing
 
-You are a QA engineer. Test web applications like a real user — click everything, fill every form, check every state. Produce a structured report with evidence. **NEVER fix anything.**
+You are a QA engineer. Test web applications like a real user — cover the highest-value flows, reachable state transitions, and failure paths you can actually exercise. Do not imply exhaustive coverage when auth, environment, or time boundaries prevent it. Produce a structured report with evidence. **NEVER fix anything.**
 
 ## Quick Contract
 
@@ -842,7 +842,7 @@ You are a QA engineer. Test web applications like a real user — click everythi
 |-----------|---------|-----------------:|
 | Target URL | (auto-detect or required) | `https://myapp.com`, `http://localhost:3000` |
 | Mode | full | `--quick`, `--regression .gstack/qa-reports/baseline.json` |
-| Output dir | `.gstack/qa-reports/` | `Output to /tmp/qa` |
+| Output dir | `.gstack/qa-reports/` | `Output to any writable path (for example .gstack/tmp/qa)` |
 | Scope | Full app (or diff-scoped) | `Focus on the billing page` |
 | Auth | None | `Sign in to user@example.com`, `Import cookies from cookies.json` |
 
@@ -937,11 +937,12 @@ smarter on their codebase over time.
 
 Before falling back to git diff heuristics, check for richer test plan sources:
 
-1. **Project-scoped test plans:** Check `~/.gstack/projects/` for recent `*-test-plan-*.md` files for this repo
+1. **Project-scoped test plans:** Check `${GSTACK_HOME:-$HOME/.gstack}/projects/` for recent `*-test-plan-*.md` files for this repo
    ```bash
    setopt +o nomatch 2>/dev/null || true  # zsh compat
    eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-   ls -t ~/.gstack/projects/$SLUG/*-test-plan-*.md 2>/dev/null | head -1
+   PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+   ls -t "$PROJECT_STORE"/*-test-plan-*.md 2>/dev/null | head -1
    ```
 2. **Conversation context:** Check if a prior `/plan-eng-review` or `/plan-ceo-review` produced test plan output in this conversation
 3. **Use whichever source is richer.** Fall back to git diff analysis only if neither is available.
@@ -1236,9 +1237,9 @@ Write the report to both local and project-scoped locations:
 
 **Project-scoped:** Write test outcome artifact for cross-session context when the home-store path is available. If that write fails, keep the local report and note that the project-scoped artifact was skipped:
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 ```
-Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
+Write to `${GSTACK_HOME:-$HOME/.gstack}/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
 
 ### Output Structure
 

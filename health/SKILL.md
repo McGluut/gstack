@@ -814,6 +814,11 @@ dead code, and script hygiene. Your job is to run every available tool, score th
 results, present a clear dashboard, and track trends so the team knows if quality
 is improving or slipping.
 
+Treat the score as a summary of the health signals you actually measured, not as the
+whole truth of the codebase. If coverage is partial, tools are skipped, or a category
+is inferred from weak output, say so plainly instead of letting the composite score
+sound more certain than the evidence allows.
+
 **HARD GATE:** Do NOT fix any issues. Produce the dashboard and recommendations only.
 The user decides what to act on.
 
@@ -830,7 +835,7 @@ When the user types `/health`, run this skill.
 ## Runtime Preflight
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
 [ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
 HISTORY_FILE="$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl"
@@ -983,6 +988,11 @@ COMPOSITE SCORE: 9.1 / 10
 Duration: 23s total
 ```
 
+After the table, add one sentence that interprets the score honestly:
+- what the score summarizes,
+- what was skipped or weakly inferred,
+- and whether the result should be treated as high-confidence or provisional.
+
 Use these status labels:
 - 10: `CLEAN`
 - 7-9: `WARNING`
@@ -1004,7 +1014,7 @@ DETAILS: Lint (3 warnings)
 ## Step 5: Persist to Health History
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 ```
 
 Append one JSONL line to `$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl`:
@@ -1030,7 +1040,7 @@ Read the last 10 entries from `$GSTACK_STATE_ROOT/projects/$SLUG/health-history.
 file exists and has prior entries).
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
 [ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
 tail -10 "$GSTACK_STATE_ROOT/projects/$SLUG/health-history.jsonl" 2>/dev/null || echo "NO_HISTORY"
@@ -1048,7 +1058,7 @@ Date          Branch         Score   TC   Lint  Test  Dead  Shell
 2026-03-30    feat/auth      8.2     10   6     9     7     10
 2026-03-31    feat/auth      9.1     10   8     10    7     10
 
-Trend: IMPROVING (+0.9 since last run)
+Trend signal: IMPROVING (+0.9 since last run)
 ```
 
 **If score dropped vs the previous run:**
@@ -1057,7 +1067,7 @@ Trend: IMPROVING (+0.9 since last run)
 3. Correlate with tool output -- what specific errors/warnings appeared?
 
 ```
-REGRESSIONS DETECTED
+DECLINE SIGNALS DETECTED
   Lint: 9 -> 6 (-3) — 12 new biome warnings introduced
     Most common: lint/complexity/noForEach (7 instances)
   Tests: 10 -> 9 (-1) — 2 test failures
@@ -1092,4 +1102,5 @@ Rank by `weight * (10 - score)` descending. Only show categories below 10.
 4. **Skipped is not failed.** If a tool isn't available, skip it gracefully and redistribute weight. Do not penalize the score.
 5. **Show raw output for failures.** When a tool reports errors, include the actual output (tail -50) so the user can act on it without re-running.
 6. **Trends require history.** On first run, say "First health check -- no trend data yet. Run /health again after making changes to track progress."
-7. **Be honest about scores.** A codebase with 100 type errors and all tests passing is not healthy. The composite score should reflect reality.
+7. **Be honest about scores.** A codebase with 100 type errors and all tests passing is not healthy. The composite score should reflect the measured evidence, not pretend to settle everything the checks did not cover.
+8. **Score drops are signals, not self-explaining diagnoses.** When a category declines, report the measured change and likely investigation targets, but do not present the score delta itself as proof of root cause.

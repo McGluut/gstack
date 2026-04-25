@@ -131,7 +131,7 @@ Two paths, pick the cleaner one:
 # HTML file on disk → goto file:// (absolute, or cwd-relative)
 $B goto "file://$TMP_ROOT/report.html"
 $B goto file://./docs/page.html        # cwd-relative
-$B goto file://~/Documents/page.html   # home-relative
+$B goto "file://$HOME/Documents/page.html"   # absolute home path after shell expansion
 
 # HTML generated in memory → load-html reads the file into setContent
 echo '<div class="tweet">hello</div>' > "$TMP_ROOT/tweet.html"
@@ -227,7 +227,7 @@ $B style --undo 2                            # revert specific change
 ```bash
 $B cleanup --all                 # remove ads, cookies, sticky, social
 $B cleanup --ads --cookies       # selective cleanup
-$B prettyscreenshot --cleanup --scroll-to ".pricing" --width 1440 ~/Desktop/hero.png
+$B prettyscreenshot --cleanup --scroll-to ".pricing" --width 1440 "$TMP_ROOT/hero.png"
 ```
 
 ## Full Command List

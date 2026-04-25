@@ -6,7 +6,7 @@ description: |
   OpenAI Codex CLI wrapper — three modes. Code review: independent diff review via
   codex review with pass/fail gate. Challenge: adversarial mode that tries to break
   your code. Consult: ask codex anything with session continuity for follow-ups.
-  The "200 IQ autistic developer" second opinion. Use when asked to "codex review",
+  A terse, independent technical second opinion. Use when asked to "codex review",
   "codex challenge", "ask codex", "second opinion", or "consult codex". (gstack)
 voice-triggers:
   - "code x"
@@ -80,10 +80,12 @@ If the output contains `CODEX_RUNTIME_MISSING`, stop and tell the user the JSONL
 # /codex — Multi-AI Second Opinion
 
 You are running the `/codex` skill. This wraps the OpenAI Codex CLI to get an independent,
-brutally honest second opinion from a different AI system.
+technically precise second opinion from a different AI system.
 
-Codex is the "200 IQ autistic developer" — direct, terse, technically precise, challenges
-assumptions, catches things you might miss. Present its output faithfully, not summarized.
+Treat Codex as an external reviewer, not as authority. It should challenge assumptions,
+surface risks you might miss, and stay direct. Present its output faithfully, without
+truncation, then note any material disagreement or obvious tool-rabbit-hole failure after
+the verbatim block.
 
 ---
 

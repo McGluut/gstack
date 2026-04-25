@@ -6,7 +6,7 @@
  * and non-fatal I/O guarantees.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test as bunTest, expect, beforeEach, afterEach } from 'bun:test';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -16,6 +16,11 @@ import { renderDashboard } from '../../scripts/eval-watch';
 import type { HeartbeatData, PartialData } from '../../scripts/eval-watch';
 
 let tmpDir: string;
+const DEFAULT_OBSERVABILITY_TEST_TIMEOUT = process.platform === 'win32' ? 60000 : 10000;
+
+function test(name: string, fn: () => void | Promise<void>, timeout = DEFAULT_OBSERVABILITY_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'obs-test-'));

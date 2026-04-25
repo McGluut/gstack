@@ -27,6 +27,8 @@ describe('design/browser off-the-shelf hardening', () => {
     expect(template).toContain('TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"');
     expect(template).toContain('$B snapshot -i -a -o "$TMP_ROOT/annotated.png"');
     expect(template).toContain('$B goto "file://$TMP_ROOT/report.html"');
+    expect(template).toContain('$B goto "file://$HOME/Documents/page.html"');
+    expect(template).toContain('$TMP_ROOT/hero.png');
     expect(template).not.toContain('$B snapshot -i -a -o /tmp/annotated.png');
   });
 
@@ -35,16 +37,17 @@ describe('design/browser off-the-shelf hardening', () => {
     const designShotgun = readTemplate('design-shotgun');
     const designHtml = readTemplate('design-html');
     const designReview = readTemplate('design-review');
-    expect(designConsultation).toContain('~/.claude/skills/gstack/bin/gstack-slug');
-    expect(designShotgun).toContain('~/.claude/skills/gstack/bin/gstack-slug');
-    expect(designHtml).toContain('~/.claude/skills/gstack/bin/gstack-slug');
-    expect(designReview).toContain('~/.claude/skills/gstack/bin/gstack-slug');
+    expect(designConsultation).toContain('"$GSTACK_BIN/gstack-slug"');
+    expect(designShotgun).toContain('"$GSTACK_BIN/gstack-slug"');
+    expect(designHtml).toContain('"$GSTACK_BIN/gstack-slug"');
+    expect(designReview).toContain('"$GSTACK_BIN/gstack-slug"');
   });
 
   test('design-consultation uses a portable preview path and opener helper', () => {
     const template = readTemplate('design-consultation');
     expect(template).toContain('TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-open-url "$PREVIEW_FILE"');
+    expect(template).toContain('"$GSTACK_BIN/gstack-open-url" "$PREVIEW_FILE"');
+    expect(template).toContain("printf '%s\\n' \"$PREVIEW_FILE\"");
     expect(template).not.toContain('open "$PREVIEW_FILE"');
   });
 
@@ -54,19 +57,18 @@ describe('design/browser off-the-shelf hardening', () => {
     const designHtml = readTemplate('design-html');
     const designReview = readTemplate('design-review');
     const openBrowser = readTemplate('open-gstack-browser');
-    expect(designConsultation).toContain('PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"');
-    expect(designShotgun).toContain('PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"');
-    expect(designHtml).toContain('PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"');
-    expect(designReview).toContain('PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"');
+    expect(designConsultation).toContain('PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"');
+    expect(designShotgun).toContain('PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"');
+    expect(designHtml).toContain('PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"');
+    expect(designReview).toContain('PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"');
     expect(openBrowser).toContain('_PROFILE_DIR="${HOME:+$HOME/.gstack/chromium-profile}"');
-    expect(designShotgun).toContain('PROJECT_STORE=".gstack/projects/$SLUG"');
     expect(designReview).toContain('REPORT_DIR="$PROJECT_STORE/designs/design-audit-$(date +%Y%m%d)"');
   });
 
   test('design-html uses repo-local pretext vendor path and opener helper', () => {
     const template = readTemplate('design-html');
     expect(template).toContain('$_ROOT/design-html/vendor/pretext.js');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-open-url "<path-to-finalized.html>"');
+    expect(template).toContain('"$GSTACK_BIN/gstack-open-url" "<path-to-finalized.html>"');
     expect(template).not.toContain('$_ROOT/.claude/skills/gstack/design-html/vendor/pretext.js');
   });
 
@@ -86,7 +88,13 @@ describe('design/browser off-the-shelf hardening', () => {
   test('make-pdf surfaces preview degradation honestly', () => {
     const template = readTemplate('make-pdf');
     expect(template).toContain('tries to open it in your browser');
-    expect(template).toContain('`~/.claude/skills/gstack/bin/gstack-open-url` when that helper exists');
+    expect(template).toContain('`$GSTACK_BIN/gstack-open-url` when that helper exists');
     expect(template).toContain('equivalent temp-root path on this host');
+  });
+
+  test('generated Codex ship skill uses host-rewritable design checklist paths', () => {
+    const content = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'gstack-ship', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('$GSTACK_ROOT/review/design-checklist.md');
+    expect(content).not.toContain('.claude/skills/review/design-checklist.md');
   });
 });

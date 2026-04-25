@@ -1,22 +1,30 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test as bunTest, expect, beforeEach, afterEach } from 'bun:test';
 import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
+const BASH = resolveBash();
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 120000 : 15000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT + 30000;
 
 let tmpDir: string;
+
+function test(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
 
 function runProfile(): Record<string, string> {
   const execOpts: SpawnSyncOptionsWithStringEncoding = {
     cwd: ROOT,
     env: { ...process.env, GSTACK_HOME: tmpDir },
     encoding: 'utf-8',
-    timeout: 15000,
+    timeout: CLI_EXEC_TIMEOUT,
   };
-  const processResult = spawnSync('bash', [path.join(BIN, 'gstack-builder-profile')], execOpts);
+  const processResult = spawnSync(BASH, [path.join(BIN, 'gstack-builder-profile')], execOpts);
   if (processResult.status !== 0) {
     throw new Error((processResult.stderr || processResult.stdout || 'gstack-builder-profile failed').trim());
   }

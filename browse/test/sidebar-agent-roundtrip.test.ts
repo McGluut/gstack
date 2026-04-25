@@ -94,7 +94,9 @@ console.log(JSON.stringify({ type: 'result', result: 'Done.' }));
   });
 
   // Wait for server
-  const deadline = Date.now() + 15000;
+  // Loaded shard runs on Windows can take materially longer to boot the server.
+  // Keep the test honest by allowing startup latency instead of failing early.
+  const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     if (fs.existsSync(stateFile)) {
       try {
@@ -130,7 +132,7 @@ console.log(JSON.stringify({ type: 'result', result: 'Done.' }));
 
   // Give sidebar-agent time to start polling
   await new Promise(r => setTimeout(r, 1000));
-}, 20000);
+}, 40000);
 
 afterAll(() => {
   if (agentProc) { try { agentProc.kill(); } catch {} }
@@ -155,7 +157,7 @@ describe('sidebar-agent round-trip', () => {
     // Wait for mock claude to process and events to arrive
     const entries = await pollChatUntil(
       (entries) => entries.some((e: any) => e.type === 'agent_done'),
-      15000,
+      20000,
     );
 
     // Verify the flow: user message → agent_start → text → agent_done
@@ -173,7 +175,7 @@ describe('sidebar-agent round-trip', () => {
     // Agent should be back to idle
     const session = await (await api('/sidebar-session')).json();
     expect(session.agent.status).toBe('idle');
-  }, 20000);
+  }, 30000);
 
   test('claude crash produces agent_error', async () => {
     await resetState();
@@ -192,7 +194,7 @@ process.exit(1);
     // Wait for agent_done (sidebar-agent sends agent_done even on crash via proc.on('close'))
     const entries = await pollChatUntil(
       (entries) => entries.some((e: any) => e.type === 'agent_done' || e.type === 'agent_error'),
-      15000,
+      20000,
     );
 
     // Agent should recover to idle
@@ -203,7 +205,7 @@ process.exit(1);
     writeMockClaude(`#!/bin/bash
 echo '{"type":"assistant","message":{"content":[{"type":"text","text":"recovered"}]}}'
 `);
-  }, 20000);
+  }, 30000);
 
   test('sequential queue drain', async () => {
     await resetState();
@@ -232,11 +234,11 @@ console.log(JSON.stringify({ type: 'result', result: 'done' }));
     // Wait for both to complete (two agent_done events)
     const entries = await pollChatUntil(
       (entries) => entries.filter((e: any) => e.type === 'agent_done').length >= 2,
-      20000,
+      25000,
     );
 
     // Both user messages should be in chat
     const userEntries = entries.filter((e: any) => e.role === 'user');
     expect(userEntries.length).toBeGreaterThanOrEqual(2);
-  }, 25000);
+  }, 35000);
 });

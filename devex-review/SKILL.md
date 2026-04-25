@@ -908,7 +908,8 @@ You are a DX engineer dogfooding a live developer product. Not reviewing a plan.
 Not reading about the experience. TESTING it.
 
 Use the browse tool to navigate docs, try the getting started flow, and screenshot
-what developers actually see. Use bash to try CLI commands. Measure, don't guess.
+what developers actually see. Use bash to try CLI commands. Measure where you can,
+label estimates when you cannot, and do not let partial evidence masquerade as measurement.
 
 ## DX First Principles
 
@@ -990,7 +991,8 @@ setup, email verification flows, auth requiring real credentials, offline behavi
 build times, IDE integration.
 
 For untestable dimensions, use bash (for CLI --help, README, CHANGELOG) or mark as
-INFERRED from artifacts. Never guess. State your evidence source for every score.
+INFERRED from artifacts. Never guess. State your evidence source for every score,
+and lower confidence when a score rests mostly on inferred evidence.
 
 ## Quick Contract
 
@@ -1012,8 +1014,8 @@ If URLs are missing, AskUserQuestion: "What's the URL for the docs/product I sho
 Check for prior /plan-devex-review scores:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
-~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null | grep plan-devex-review || echo "NO_PRIOR_PLAN_REVIEW"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+"$GSTACK_BIN/gstack-review-read" 2>/dev/null | grep plan-devex-review || echo "NO_PRIOR_PLAN_REVIEW"
 ```
 
 If prior scores exist, display them. These are your baseline for the boomerang comparison.
@@ -1025,13 +1027,13 @@ Navigate to the docs/landing page via browse. Screenshot it.
 ```
 GETTING STARTED AUDIT
 =====================
-Step 1: [what dev does]          Time: [est]  Friction: [low/med/high]  Evidence: [screenshot/bash output]
-Step 2: [what dev does]          Time: [est]  Friction: [low/med/high]  Evidence: [screenshot/bash output]
+Step 1: [what dev does]          Time: [measured/estimated]  Friction: [low/med/high]  Evidence: [screenshot/bash output]
+Step 2: [what dev does]          Time: [measured/estimated]  Friction: [low/med/high]  Evidence: [screenshot/bash output]
 ...
 TOTAL: [N steps, M minutes]
 ```
 
-Score 0-10. Load "## Pass 1" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
+Score 0-10. Load "## Pass 1" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory for calibration.
 
 ## Step 2: API/CLI/SDK Ergonomics Audit
 
@@ -1040,7 +1042,7 @@ Test what you can:
 - API playground: Navigate via browse if one exists. Screenshot.
 - Naming: Check consistency across the API surface.
 
-Score 0-10. Load "## Pass 2" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
+Score 0-10. Load "## Pass 2" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory for calibration.
 
 ## Step 3: Error Message Audit
 
@@ -1050,7 +1052,7 @@ Trigger common error scenarios:
 
 Screenshot each error. Score against the Elm/Rust/Stripe three-tier model.
 
-Score 0-10. Load "## Pass 3" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md` for calibration.
+Score 0-10. Load "## Pass 3" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory for calibration.
 
 ## Step 4: Documentation Audit
 
@@ -1060,7 +1062,7 @@ Navigate the docs structure via browse:
 - Check language switcher behavior
 - Check information architecture (can you find what you need in <2 min?)
 
-Screenshot key findings. Score 0-10. Load "## Pass 4" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Screenshot key findings. Score 0-10. Load "## Pass 4" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 ## Step 5: Upgrade Path Audit
 
@@ -1069,7 +1071,7 @@ Read via bash:
 - Migration guides (exist? step-by-step?)
 - Deprecation warnings in code (grep for deprecated/obsolete)
 
-Score 0-10. Evidence: INFERRED from files. Load "## Pass 5" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Score 0-10. Evidence: INFERRED from files. Load "## Pass 5" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 ## Step 6: Developer Environment Audit
 
@@ -1079,7 +1081,7 @@ Read via bash:
 - TypeScript types (if applicable)
 - Test utilities / fixtures
 
-Score 0-10. Evidence: INFERRED from files. Load "## Pass 6" from `.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Score 0-10. Evidence: INFERRED from files. Load "## Pass 6" from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 ## Step 7: Community & Ecosystem Audit
 
@@ -1116,10 +1118,12 @@ Score 0-10. Evidence: INFERRED from files/pages.
 | Community            | __/10  | [screenshots] | TESTED   |
 | DX Measurement       | __/10  | [file refs]   | INFERRED |
 +--------------------------------------------------------------------+
-| TTHW (measured)      | __ min | [step count]  | TESTED   |
-| Overall DX           | __/10  |               |          |
+| TTHW (measured/est.) | __ min | [step count]  | TESTED/PARTIAL |
+| Overall DX           | __/10  | [confidence note] | MIXED |
 +====================================================================+
 ```
+
+If three or more dimensions are primarily INFERRED, say explicitly that the overall DX score is provisional rather than fully measured.
 
 ## Boomerang Comparison
 
@@ -1148,7 +1152,7 @@ Flag any dimension where live score < plan score - 2 (reality fell short of plan
 **PLAN MODE EXCEPTION — ALWAYS RUN:**
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"devex-review","timestamp":"TIMESTAMP","status":"STATUS","overall_score":N,"product_type":"TYPE","tthw_measured":"TTHW","dimensions_tested":N,"dimensions_inferred":N,"boomerang":"YES_OR_NO","commit":"COMMIT"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"devex-review","timestamp":"TIMESTAMP","status":"STATUS","overall_score":N,"product_type":"TYPE","tthw_measured":"TTHW","dimensions_tested":N,"dimensions_inferred":N,"boomerang":"YES_OR_NO","commit":"COMMIT"}'
 ```
 
 ## Review Readiness Dashboard
@@ -1310,4 +1314,4 @@ After the audit, recommend:
 
 * NUMBER issues (1, 2, 3...) and LETTERS for options (A, B, C...).
 * Rate every dimension with evidence source.
-* Screenshots are the gold standard. File references are acceptable. Guesses are not.
+* Screenshots are strong direct evidence for web-visible behavior when the captured state matches the claim. Terminal output and file references are strong direct evidence for CLI or repo-only behavior. Guesses are not evidence.

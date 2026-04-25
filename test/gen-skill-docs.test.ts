@@ -1113,8 +1113,10 @@ describe('CODEX_SECOND_OPINION resolver', () => {
   });
 
   test('quotes builder-profile binary paths in generated office-hours skills', () => {
-    expect(content).toContain('PROFILE=$("~/.claude/skills/gstack/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
-    expect(codexContent).toContain('PROFILE=$("$GSTACK_ROOT/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
+    expect(content).toContain('GSTACK_BUILDER_PROFILE="${GSTACK_BIN:+$GSTACK_BIN/gstack-builder-profile}"');
+    expect(content).toContain('PROFILE=$([ -x "$GSTACK_BUILDER_PROFILE" ] && "$GSTACK_BUILDER_PROFILE" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
+    expect(codexContent).toContain('GSTACK_BUILDER_PROFILE="${GSTACK_BIN:+$GSTACK_BIN/gstack-builder-profile}"');
+    expect(codexContent).toContain('PROFILE=$([ -x "$GSTACK_BUILDER_PROFILE" ] && "$GSTACK_BUILDER_PROFILE" 2>/dev/null) || PROFILE="SESSION_COUNT: 0');
   });
 
   test('contains Claude subagent fallback', () => {
@@ -1697,11 +1699,11 @@ describe('Codex generation (--host codex)', () => {
     // Regression: gen-skill-docs rewrote .claude/skills/review → .agents/skills/gstack-review
     // but setup puts sidecars under .agents/skills/gstack/review/. Must match setup layout.
     const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
-    // Correct: references to sidecar files use gstack/review/ path
-    expect(content).toContain('.agents/skills/gstack/review/checklist.md');
+    // Correct: references to sidecar files use the shared gstack/review path via GSTACK_ROOT
+    expect(content).toContain('${GSTACK_ROOT:-$HOME/.agents/skills/gstack}/review/checklist.md');
     // design-checklist.md is now referenced via Review Army specialist (Claude only, stripped for Codex)
     // Wrong: must NOT reference gstack-review/checklist.md (file doesn't exist there)
-    expect(content).not.toContain('.agents/skills/gstack-review/checklist.md');
+    expect(content).not.toContain('gstack-review/checklist.md');
   });
 
   test('sidecar paths in ship skill point to gstack/review/ for pre-landing review', () => {
@@ -1716,8 +1718,8 @@ describe('Codex generation (--host codex)', () => {
   test('greptile-triage sidecar path is correct', () => {
     const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
     if (content.includes('greptile-triage')) {
-      expect(content).toContain('.agents/skills/gstack/review/greptile-triage.md');
-      expect(content).not.toContain('.agents/skills/gstack-review/greptile-triage');
+      expect(content).toContain('${GSTACK_ROOT:-$HOME/.agents/skills/gstack}/review/greptile-triage.md');
+      expect(content).not.toContain('gstack-review/greptile-triage');
     }
   });
 
@@ -1760,11 +1762,12 @@ describe('Codex generation (--host codex)', () => {
 
   // ─── Claude output regression guard ─────────────────────────
 
-  test('Claude output unchanged: review skill still uses .claude/skills/ paths', () => {
-    // Codex changes must NOT affect Claude output
+  test('Claude review output keeps Claude-specific fallback paths', () => {
+    // Codex changes must NOT affect Claude output, but Claude now uses the same
+    // host-rewritable GSTACK_ROOT contract with a Claude-specific fallback root.
     const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('.claude/skills/review/checklist.md');
-    expect(content).toContain('~/.claude/skills/gstack');
+    expect(content).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/checklist.md');
+    expect(content).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/greptile-triage.md');
     // Must NOT contain Codex paths
     expect(content).not.toContain('.agents/skills');
     expect(content).not.toContain('~/.codex/');
@@ -1923,7 +1926,7 @@ describe('Factory generation (--host factory)', () => {
     expect(factoryResult.exitCode).toBe(0);
     expect(droidResult.exitCode).toBe(0);
     expect(factoryResult.stdout.toString()).toBe(droidResult.stdout.toString());
-  });
+  }, process.platform === 'win32' ? 15_000 : 5_000);
 
   test('--host factory --dry-run freshness', () => {
     const result = Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'factory', '--dry-run'], {
@@ -2034,7 +2037,7 @@ describe('--host all', () => {
     for (const hostConfig of getExternalHosts()) {
       expect(output).toContain(`FRESH: ${hostConfig.hostSubdir}/skills/`);
     }
-  });
+  }, process.platform === 'win32' ? 15_000 : 5_000);
 });
 
 // ─── Setup script validation ─────────────────────────────────

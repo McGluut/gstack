@@ -27,9 +27,10 @@ hooks:
 
 # /careful — Destructive Command Guardrails
 
-Safety mode is now **active**. Every bash command will be checked for destructive
-patterns before running. If a destructive command is detected, you'll be warned
-and can choose to proceed or cancel.
+Safety mode is now **active**. Every Bash tool command will be checked for common
+destructive patterns before running. If a destructive command is detected, you'll
+be warned and can choose to proceed or cancel. Treat this as a guardrail against
+obvious destructive actions, not as proof that a shell command is safe.
 
 ## Quick Contract
 
@@ -67,6 +68,8 @@ These patterns are allowed without warning:
 
 The hook reads the command from the tool input JSON, checks it against the
 patterns above, and returns `permissionDecision: "ask"` with a warning message
-if a match is found. You can always override the warning and proceed.
+if a match is found. You can always override the warning and proceed. Absence of
+a warning only means no listed pattern matched; it does not prove the command is
+non-destructive.
 
 To deactivate, end the conversation or start a new one. Hooks are session-scoped.

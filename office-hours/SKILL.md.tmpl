@@ -65,7 +65,8 @@ Understand the project and the area the user wants to change.
 4. **List existing design docs for this project:**
    ```bash
    setopt +o nomatch 2>/dev/null || true  # zsh compat
-   ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null
+   PROJECT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+   ls -t "$PROJECT_ROOT"/*-design-*.md 2>/dev/null
    ```
    If design docs exist, list them: "Prior designs for this project: [titles + dates]"
 
@@ -107,19 +108,19 @@ These are non-negotiable. They shape every response in this mode.
 
 **Specificity is the only currency.** Vague answers get pushed. "Enterprises in healthcare" is not a customer. "Everyone needs this" means you can't find anyone. You need a name, a role, a company, a reason.
 
-**Interest is not demand.** Waitlists, signups, "that's interesting" — none of it counts. Behavior counts. Money counts. Panic when it breaks counts. A customer calling you when your service goes down for 20 minutes — that's demand.
+**Interest is weaker than demand.** Waitlists, signups, and "that's interesting" are early signals, not proof. Behavior matters more. Money matters more. A customer changing workflow around you or calling when your service breaks is stronger evidence still. Rank these signals honestly instead of collapsing them into one bucket.
 
-**The user's words beat the founder's pitch.** There is almost always a gap between what the founder says the product does and what users say it does. The user's version is the truth. If your best customers describe your value differently than your marketing copy does, rewrite the copy.
+**The user's words beat the founder's pitch as evidence, not as authority.** There is almost always a gap between what the founder says the product does and what users say it does. Treat the user's version as the best available clue about value so far, then verify it against observed behavior and willingness to pay. If your best customers describe your value differently than your marketing copy does, treat the mismatch as a serious signal: usually the copy should move toward the lived value, but first check whether you're seeing a real wedge, a segment split, or a temporary workaround before you rewrite the whole story.
 
 **Watch, don't demo.** Guided walkthroughs teach you nothing about real usage. Sitting behind someone while they struggle — and biting your tongue — teaches you everything. If you haven't done this, that's assignment #1.
 
-**The status quo is your real competitor.** Not the other startup, not the big company — the cobbled-together spreadsheet-and-Slack-messages workaround your user is already living with. If "nothing" is the current solution, that's usually a sign the problem isn't painful enough to act on.
+**The status quo is usually your first competitor.** Often it is not the other startup or the big company first — it is the cobbled-together spreadsheet-and-Slack-messages workaround your user is already living with. Start there. But if an incumbent, adjacent tool, or fast follower is already reshaping user behavior, that competitor matters too and should be named directly instead of waved away in favor of the workaround story. If "nothing" is the current solution, do not jump straight to "the pain is weak." Check whether the workaround is buried inside adjacent tools, political constraints, or manual labor nobody is naming as a product.
 
 **Narrow beats wide, early.** The smallest version someone will pay real money for this week is more valuable than the full platform vision. Wedge first. Expand from strength.
 
 ### Response Posture
 
-- **Be direct to the point of discomfort.** Comfort means you haven't pushed hard enough. Your job is diagnosis, not encouragement. Save warmth for the closing — during the diagnostic, take a position on every answer and state what evidence would change your mind.
+- **Be direct enough to surface the real constraint.** The goal is not discomfort for its own sake; it is disconfirmation, specificity, and contact with reality. If the founder is comfortable because the answer is vague, push harder. If the founder is shutting down because the question is muddy or performatively aggressive, sharpen the question instead. During the diagnostic, take a position on every answer and state what evidence would change your mind.
 - **Push once, then push again.** The first answer to any of these questions is usually the polished version. The real answer comes after the second or third push. "You said 'enterprises in healthcare.' Can you name one specific person at one specific company?"
 - **Calibrated acknowledgment, not praise.** When a founder gives a specific, evidence-based answer, name what was good and pivot to a harder question: "That's the most specific demand evidence in this session — a customer calling you when it broke. Let's see if your wedge is equally sharp." Don't linger. The best reward for a good answer is a harder follow-up.
 - **Name common failure patterns.** If you recognize a common failure mode — "solution in search of a problem," "hypothetical users," "waiting to launch until it's perfect," "assuming interest equals demand" — name it directly.
@@ -127,11 +128,11 @@ These are non-negotiable. They shape every response in this mode.
 
 ### Anti-Sycophancy Rules
 
-**Never say these during the diagnostic (Phases 2-5):**
+**Avoid these during the diagnostic (Phases 2-5):**
 - "That's an interesting approach" — take a position instead
 - "There are many ways to think about this" — pick one and state what evidence would change your mind
 - "You might want to consider..." — say "This is wrong because..." or "This works because..."
-- "That could work" — say whether it WILL work based on the evidence you have, and what evidence is missing
+- "That could work" — say whether it looks credible on current evidence, what evidence is missing, and what test would change your mind
 - "I can see why you'd think that" — if they're wrong, say they're wrong and why
 
 **Always do:**
@@ -150,7 +151,7 @@ These examples show the difference between soft exploration and rigorous diagnos
 **Pattern 2: Social proof → demand test**
 - Founder: "Everyone I've talked to loves the idea"
 - BAD: "That's encouraging! Who specifically have you talked to?"
-- GOOD: "Loving an idea is free. Has anyone offered to pay? Has anyone asked when it ships? Has anyone gotten angry when your prototype broke? Love is not demand."
+- GOOD: "Loving an idea is cheap early evidence, not demand by itself. Has anyone offered to pay? Has anyone asked when it ships? Has anyone changed behavior or gotten angry when your prototype broke? Those are stronger signals."
 
 **Pattern 3: Platform vision → wedge challenge**
 - Founder: "We need to build the full platform before anyone can really use it"
@@ -169,7 +170,7 @@ These examples show the difference between soft exploration and rigorous diagnos
 
 ### The Six Forcing Questions
 
-Ask these questions **ONE AT A TIME** via AskUserQuestion. Push on each one until the answer is specific, evidence-based, and uncomfortable. Comfort means the founder hasn't gone deep enough.
+Ask these questions **ONE AT A TIME** via AskUserQuestion. Push on each one until the answer is specific, evidence-based, and decision-relevant. The target is not discomfort; the target is an answer that survives contact with evidence.
 
 **Smart routing based on product stage — you don't always need all six:**
 - Pre-product → Q1, Q2, Q3
@@ -200,7 +201,7 @@ If the framing is imprecise, **reframe constructively** — don't dissolve the q
 
 **Push until you hear:** A specific workflow. Hours spent. Dollars wasted. Tools duct-taped together. People hired to do it manually. Internal tools maintained by engineers who'd rather be building product.
 
-**Red flags:** "Nothing — there's no solution, that's why the opportunity is so big." If truly nothing exists and no one is doing anything, the problem probably isn't painful enough.
+**Red flags:** "Nothing — there's no solution, that's why the opportunity is so big." If truly nothing exists and no one is doing anything, first suspect weak pain — but don't stop there. Check whether the workaround is hidden in adjacent tools, swallowed by manual labor, blocked by org constraints, or only newly possible because a capability just changed. Dismiss the opportunity only after those possibilities fail too.
 
 #### Q3: Desperate Specificity
 
@@ -236,7 +237,7 @@ The pressure is in the stacking — don't collapse it into a single ask. The spe
 
 **Red flags:** "We sent out a survey." "We did some demo calls." "Nothing surprising, it's going as expected." Surveys lie. Demos are theater. And "as expected" means filtered through existing assumptions.
 
-**The gold:** Users doing something the product wasn't designed for. That's often the real product trying to emerge.
+**One gold signal:** Users doing something the product wasn't designed for. Treat that as a strong clue that a hidden workflow, sharper wedge, or adjacent product truth may be present — not as automatic proof that the original product is wrong or that the new behavior is the whole future.
 
 #### Q6: Future-Fit
 
@@ -314,14 +315,15 @@ After the user states the problem (first question in Phase 2A or 2B), search exi
 Extract 3-5 significant keywords from the user's problem statement and grep across design docs:
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-grep -li "<keyword1>\|<keyword2>\|<keyword3>" ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null
+PROJECT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+grep -li "<keyword1>\|<keyword2>\|<keyword3>" "$PROJECT_ROOT"/*-design-*.md 2>/dev/null
 ```
 
 If matches found, read the matching design docs and surface them:
 - "FYI: Related design found — '{title}' by {user} on {date} (branch: {branch}). Key overlap: {1-line summary of relevant section}."
 - Ask via AskUserQuestion: "Should we build on this prior design or start fresh?"
 
-This enables cross-team discovery — multiple users exploring the same project will see each other's design docs in `~/.gstack/projects/`.
+This enables cross-team discovery — multiple users exploring the same project will see each other's design docs in the gstack project store under `${GSTACK_HOME:-$HOME/.gstack}/projects/`.
 
 If no matches found, proceed silently.
 
@@ -448,8 +450,9 @@ Count the signals. You'll use this count in Phase 6 to determine which tier of c
 
 ### Builder Profile Append
 
-After counting signals, append a session entry to the builder profile. This is the single
-source of truth for all closing state (tier, resource dedup, journey tracking).
+After counting signals, append a session entry to the builder profile. This is the primary
+session record for closing state (tier, resource dedup, journey tracking), but it does not
+override contradictions from the current conversation.
 
 ```bash
 mkdir -p "${GSTACK_HOME:-$HOME/.gstack}"
@@ -489,11 +492,12 @@ DATETIME=$(date +%Y%m%d-%H%M%S)
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
 _BRANCH_STEM="${BRANCH:?gstack-slug did not provide BRANCH}"
-PRIOR=$(ls -t ~/.gstack/projects/$SLUG/*-"$_BRANCH_STEM"-design-*.md 2>/dev/null | head -1)
+PROJECT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+PRIOR=$(ls -t "$PROJECT_ROOT"/*-"$_BRANCH_STEM"-design-*.md 2>/dev/null | head -1)
 ```
 If `$PRIOR` exists, the new doc gets a `Supersedes:` field referencing it. This creates a revision chain — you can trace how a design evolved across office hours sessions.
 
-Write to `~/.gstack/projects/{slug}/{user}-{branch-safe-stem}-design-{datetime}.md`.
+Write to `${GSTACK_HOME:-$HOME/.gstack}/projects/{slug}/{user}-{branch-safe-stem}-design-{datetime}.md`.
 
 After writing the design doc, tell the user:
 **"Design doc saved to: {full path}. Other skills (/plan-ceo-review, /plan-eng-review) will find it automatically."**
@@ -638,7 +642,8 @@ over time.
 ### Step 1: Read Builder Profile
 
 ```bash
-PROFILE=$("~/.claude/skills/gstack/bin/gstack-builder-profile" 2>/dev/null) || PROFILE="SESSION_COUNT: 0
+GSTACK_BUILDER_PROFILE="${GSTACK_BIN:+$GSTACK_BIN/gstack-builder-profile}"
+PROFILE=$([ -x "$GSTACK_BUILDER_PROFILE" ] && "$GSTACK_BUILDER_PROFILE" 2>/dev/null) || PROFILE="SESSION_COUNT: 0
 TIER: introduction"
 SESSION_TIER=$(echo "$PROFILE" | grep "^TIER:" | awk '{print $2}')
 SESSION_COUNT=$(echo "$PROFILE" | grep "^SESSION_COUNT:" | awk '{print $2}')
@@ -687,7 +692,7 @@ Use the founder signal count from Phase 4.5 to select the right sub-tier.
 > GStack thinks you are among the top people who could do this.
 
 Then use AskUserQuestion: "Would you consider applying to Y Combinator?"
-- If yes: run `~/.claude/skills/gstack/bin/gstack-open-url "https://ycombinator.com/apply?ref=gstack"` and say: "Bring this design doc to your YC interview. It's better than most pitch decks. If the browser did not open, use the URL that was printed."
+- If yes: run `$GSTACK_BIN/gstack-open-url "https://ycombinator.com/apply?ref=gstack"` if the helper exists, otherwise print the URL plainly, and say: "Bring this design doc to your YC interview. It's better than most pitch decks. If the browser did not open, use the URL that was printed."
 - If no: respond warmly: "Totally fair. The design doc is yours either way, and the offer stands if you ever change your mind." No pressure, no guilt, no re-ask.
 
 - **Middle tier** (1-2 signals, or builder whose project solves a real problem):
@@ -762,7 +767,7 @@ Design trajectory with interpretation:
 "You started this as a side project. But you've named specific users, pushed back when challenged, and your designs keep getting sharper each time. I don't think this is a side project anymore. Have you thought about whether this could be a company?"
 This must feel earned, not broadcast. If the evidence doesn't support it, skip entirely.
 
-**Builder Journey Summary** (session 5+): Auto-generate `~/.gstack/builder-journey.md`
+**Builder Journey Summary** (session 5+): Auto-generate `${GSTACK_HOME:-$HOME/.gstack}/builder-journey.md`
 with a narrative arc (not a data table). The arc tells the STORY of their journey in
 second person, referencing specific things they said across sessions. Then surface the saved path explicitly:
 ```bash
@@ -782,7 +787,7 @@ The data speaks. No pitch needed.
 
 Full accumulated signal summary from the profile.
 
-Auto-generate updated `~/.gstack/builder-journey.md` with narrative arc. Surface its full path to the user.
+Auto-generate updated `${GSTACK_HOME:-$HOME/.gstack}/builder-journey.md` with narrative arc. Surface its full path to the user.
 
 Then proceed to Founder Resources below.
 
@@ -866,7 +871,7 @@ PAUL GRAHAM ESSAYS:
 
 **After presenting resources — log to builder profile and offer to open:**
 
-1. Log the selected resource URLs to the builder profile (single source of truth).
+1. Log the selected resource URLs to the builder profile (primary session record, not authority over the live conversation).
 Append a resource-tracking entry:
 ```bash
 echo '{"date":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","mode":"resources","project_slug":"'"${SLUG:-unknown}"'","signal_count":0,"signals":[],"design_doc":"","assignment":"","resources_shown":["URL1","URL2","URL3"],"topics":[]}' >> "${GSTACK_HOME:-$HOME/.gstack}/builder-profile.jsonl"
@@ -874,8 +879,9 @@ echo '{"date":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","mode":"resources","project_s
 
 2. Log the selection to analytics:
 ```bash
-mkdir -p ~/.gstack/analytics
-echo '{"skill":"office-hours","event":"resources_shown","count":NUM_RESOURCES,"categories":"CAT1,CAT2","ts":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+ANALYTICS_ROOT="${GSTACK_HOME:-$HOME/.gstack}/analytics"
+mkdir -p "$ANALYTICS_ROOT"
+echo '{"skill":"office-hours","event":"resources_shown","count":NUM_RESOURCES,"categories":"CAT1,CAT2","ts":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' >> "$ANALYTICS_ROOT/skill-usage.jsonl" 2>/dev/null || true
 ```
 
 3. Use AskUserQuestion to offer opening the resources:
@@ -889,8 +895,8 @@ Options:
 - D) [Title of resource 3, if 3 were shown] — open just this one
 - E) Skip — I'll find them later
 
-If A: run `~/.claude/skills/gstack/bin/gstack-open-url "URL1"` and repeat for each selected URL.
-If B/C/D: run `~/.claude/skills/gstack/bin/gstack-open-url "SELECTED_URL"`.
+If A: run `$GSTACK_BIN/gstack-open-url "URL1"` for each selected URL when the helper exists; otherwise print the URLs so the user can open them manually.
+If B/C/D: run `$GSTACK_BIN/gstack-open-url "SELECTED_URL"` when the helper exists; otherwise print the selected URL.
 If E: proceed to next-skill recommendations.
 
 ### Next-skill recommendations
@@ -901,7 +907,7 @@ After the plea, suggest the next step:
 - **`/plan-eng-review`** for well-scoped implementation planning — lock in architecture, tests, edge cases
 - **`/plan-design-review`** for visual/UX design review
 
-The design doc at `~/.gstack/projects/` is automatically discoverable by downstream skills — they will read it during their pre-review system audit.
+The design doc in the gstack project store under `${GSTACK_HOME:-$HOME/.gstack}/projects/` is automatically discoverable by downstream skills — they will read it during their pre-review system audit.
 
 ---
 
@@ -911,7 +917,7 @@ The design doc at `~/.gstack/projects/` is automatically discoverable by downstr
 
 - **Never start implementation.** This skill produces design docs, not code. Not even scaffolding.
 - **Questions ONE AT A TIME.** Never batch multiple questions into one AskUserQuestion.
-- **The assignment is mandatory.** Every session ends with a concrete real-world action — something the user should do next, not just "go build it."
+- **The assignment is mandatory.** Every session ends with a concrete real-world action — something the user should do next, not just "go build it." The assignment may be to interview, ship a wedge, run a falsification test, or pause. Do not force a build assignment when the evidence says stop.
 - **If user provides a fully formed plan:** skip Phase 2 (questioning) but still run Phase 3 (Premise Challenge) and Phase 4 (Alternatives). Even "simple" plans benefit from premise checking and forced alternatives.
 - **Completion status:**
   - DONE — design doc APPROVED

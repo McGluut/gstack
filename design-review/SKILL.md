@@ -863,7 +863,7 @@ If `CDP_MODE=true`: skip cookie import steps — the real browser already has co
 
 **Check for DESIGN.md:**
 
-Look for `DESIGN.md`, `design-system.md`, or similar in the repo root. If found, read it — all design decisions must be calibrated against it. Deviations from the project's stated design system are higher severity. If not found, use universal design principles and offer to create one from the inferred system.
+Look for `DESIGN.md`, `design-system.md`, or similar in the repo root. If found, read it and treat it as the primary design record for the review. Deviations from the project's stated design system are higher severity, but current user instructions, accessibility, readability, and trust constraints can still override stale or incomplete guidance. If not found, use broadly accepted design principles and offer to create one from the inferred system.
 
 **Check for clean working tree:**
 
@@ -1119,7 +1119,7 @@ Commands:
 - `$D iterate --session /path/session.json --feedback "..." --output /path.png` — iterate
 
 **CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to `~/.gstack/projects/$SLUG/designs/`, NEVER to `.context/`,
+MUST be saved to `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/designs/`, NEVER to `.context/`,
 `docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
 data, not project files. They persist across branches, conversations, and workspaces.
 
@@ -1130,8 +1130,8 @@ If `DESIGN_NOT_AVAILABLE`: skip mockup generation — the fix loop works without
 **Create output directories:**
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
-PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"
 [ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 REPORT_DIR="$PROJECT_STORE/designs/design-audit-$(date +%Y%m%d)"
 mkdir -p "$REPORT_DIR/screenshots"
@@ -1962,9 +1962,8 @@ Write the report to `$REPORT_DIR` (already set up in the setup phase):
 
 **Also write a summary to the project index:**
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 ```
-Write a one-line summary to `~/.gstack/projects/{slug}/{user}-{branch}-design-audit-{datetime}.md` with a pointer to the full report in `$REPORT_DIR`.
 Write a one-line summary to `$PROJECT_STORE/{user}-{branch}-design-audit-{datetime}.md` with a pointer to the full report in `$REPORT_DIR`.
 
 **Per-finding additions** (beyond standard design audit report):

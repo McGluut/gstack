@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test as bunTest, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -8,6 +8,12 @@ import { spawnSync } from "child_process";
 // We test the script end-to-end via CLI and normalizeRemoteUrl via import
 const scriptPath = join(import.meta.dir, "..", "bin", "gstack-global-discover.ts");
 const SLOW_DISCOVERY_TIMEOUT = process.platform === "win32" ? 15000 : 5000;
+const DISCOVERY_EXEC_TIMEOUT = process.platform === "win32" ? 120000 : 30000;
+const DEFAULT_DISCOVERY_TEST_TIMEOUT = DISCOVERY_EXEC_TIMEOUT + 30000;
+
+function test(name: string, fn: () => void | Promise<void>, timeout = DEFAULT_DISCOVERY_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
 
 describe("gstack-global-discover", () => {
   describe("normalizeRemoteUrl", () => {

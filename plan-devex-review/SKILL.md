@@ -6,7 +6,8 @@ description: |
   Interactive developer experience plan review. Explores developer personas,
   benchmarks against competitors, designs magical moments, and traces friction
   points before scoring. Three modes: DX EXPANSION (competitive advantage),
-  DX POLISH (bulletproof every touchpoint), DX TRIAGE (critical gaps only).
+  DX POLISH (tighten every touchpoint under real adoption pressure), DX TRIAGE
+  (critical gaps only).
   Use when asked to "DX review", "developer experience audit", "devex review",
   or "API design review".
   Proactively suggest when the user has a plan for developer-facing products
@@ -892,8 +893,9 @@ Do NOT make any code changes. Do NOT start implementation. Your only job right n
 is to review and improve the plan's DX decisions with maximum rigor.
 
 DX is UX for developers. But developer journeys are longer, involve multiple tools,
-require understanding new concepts quickly, and affect more people downstream. The bar
-is higher because you are a chef cooking for chefs.
+require understanding new concepts quickly, and affect more people downstream. The
+standard is higher because developers compare the experience against every tool they
+already know, then propagate that judgment to teammates through adoption or rejection.
 
 This skill IS a developer tool. Apply its own DX principles to itself.
 
@@ -1002,10 +1004,11 @@ Then read:
 **Design doc check:**
 ```bash
 setopt +o nomatch 2>/dev/null || true
-SLUG=$(~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+SLUG=$("$GSTACK_ROOT/browse/bin/remote-slug" 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-' || echo 'no-branch')
-DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
-[ -z "$DESIGN" ] && DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null | head -1)
+PROJECT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+DESIGN=$(ls -t "$PROJECT_ROOT"/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+[ -z "$DESIGN" ] && DESIGN=$(ls -t "$PROJECT_ROOT"/*-design-*.md 2>/dev/null | head -1)
 [ -n "$DESIGN" ] && echo "Design doc found: $DESIGN" || echo "No design doc found"
 ```
 If a design doc exists, read it.
@@ -1219,7 +1222,7 @@ AskUserQuestion:
 Every great developer tool has a magical moment: the instant a developer goes from
 "is this worth my time?" to "oh wow, this is real."
 
-Load the "## Pass 1" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`
+Load the "## Pass 1" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory
 for gold standard examples.
 
 Identify the most likely magical moment for this product type, then present delivery
@@ -1269,8 +1272,9 @@ AskUserQuestion:
 >    I'll propose ambitious DX improvements beyond what the plan covers. Every expansion
 >    is opt-in via individual questions. I'll push hard.
 >
-> B) **DX POLISH** -- The plan's DX scope is right. I'll make every touchpoint bulletproof:
->    error messages, docs, CLI help, getting started. No scope additions, maximum rigor.
+> B) **DX POLISH** -- The plan's DX scope is right. I'll tighten every touchpoint under
+>    real adoption pressure: error messages, docs, CLI help, getting started. No scope
+>    additions, maximum rigor, and any remaining weak spots stay explicit.
 >    (recommended for most reviews)
 >
 > C) **DX TRIAGE** -- Focus only on the critical DX gaps that would block adoption.
@@ -1452,8 +1456,8 @@ smarter on their codebase over time.
 Before starting review passes, check for prior DX reviews on this project:
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null | grep plan-devex-review || echo "NO_PRIOR_DX_REVIEWS"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null)"
+"$GSTACK_BIN/gstack-review-read" 2>/dev/null | grep plan-devex-review || echo "NO_PRIOR_DX_REVIEWS"
 ```
 
 If prior reviews exist, display the trend:
@@ -1472,7 +1476,7 @@ Rate 0-10: Can a developer go from zero to hello world in under 5 minutes?
 magical moment from 0D (delivery vehicle), and any Install/Hello World friction
 points from 0F.
 
-Load reference: Read the "## Pass 1" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 1" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Installation**: One command? One click? No prerequisites?
@@ -1501,7 +1505,7 @@ Rate 0-10: Is the interface intuitive, consistent, and complete?
 A YC founder expects `tool.do(thing)`. A platform engineer expects
 `tool.configure(options).execute(thing)`.
 
-Load reference: Read the "## Pass 2" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 2" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Naming**: Guessable without docs? Consistent grammar?
@@ -1525,7 +1529,7 @@ and how to fix it?
 **Evidence recall:** Reference any error-related friction points from 0F and confusion
 points from 0G.
 
-Load reference: Read the "## Pass 3" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 3" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 **Trace 3 specific error paths** from the plan or codebase. For each, evaluate against
 the three-tier system from the Hall of Fame:
@@ -1550,7 +1554,7 @@ Rate 0-10: Can a developer find what they need and learn by doing?
 style? A YC founder needs copy-paste examples front and center. A platform engineer
 needs architecture docs and API reference.
 
-Load reference: Read the "## Pass 4" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 4" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Information architecture**: Find what they need in under 2 minutes?
@@ -1566,7 +1570,7 @@ Evaluate:
 
 Rate 0-10: Can developers upgrade without fear?
 
-Load reference: Read the "## Pass 5" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 5" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Backward compatibility**: What breaks? Blast radius limited?
@@ -1584,7 +1588,7 @@ Rate 0-10: Does this integrate into developers' existing workflows?
 **Evidence recall:** Does local dev setup work for [persona from 0A]'s typical
 environment?
 
-Load reference: Read the "## Pass 6" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 6" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Editor integration**: Language server? Autocomplete? Inline docs?
@@ -1602,7 +1606,7 @@ Evaluate:
 
 Rate 0-10: Is there a community, and does the plan invest in ecosystem health?
 
-Load reference: Read the "## Pass 7" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 7" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **Open source**: Code open? Permissive license?
@@ -1618,7 +1622,7 @@ Evaluate:
 
 Rate 0-10: Does the plan include ways to measure and improve DX over time?
 
-Load reference: Read the "## Pass 8" section from `~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+Load reference: Read the "## Pass 8" section from `dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Evaluate:
 - **TTHW tracking**: Can you measure getting started time? Is it instrumented?
@@ -1636,7 +1640,7 @@ Evaluate:
 This is NOT a scored pass. It's a checklist of proven patterns from gstack's own DX.
 
 Load reference: Read the "## Claude Code Skill DX Checklist" section from
-`~/.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md`.
+`dx-hall-of-fame.md` in the `/plan-devex-review` skill directory.
 
 Check each item. For any unchecked item, explain what's missing and suggest the fix.
 
@@ -1910,10 +1914,10 @@ If any AskUserQuestion goes unanswered, note here. Never silently default.
 After producing the DX Scorecard above, persist the review result.
 
 **PLAN MODE EXCEPTION — ALWAYS RUN:** This command writes review metadata to
-`~/.gstack/` (user config directory, not project files).
+`${GSTACK_HOME:-$HOME/.gstack}/` (user config directory, not project files).
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-devex-review","timestamp":"TIMESTAMP","status":"STATUS","initial_score":N,"overall_score":N,"product_type":"TYPE","tthw_current":"TTHW_CURRENT","tthw_target":"TTHW_TARGET","mode":"MODE","persona":"PERSONA","competitive_tier":"TIER","pass_scores":{"getting_started":N,"api_design":N,"errors":N,"docs":N,"upgrade":N,"dev_env":N,"community":N,"measurement":N},"unresolved":N,"commit":"COMMIT"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"plan-devex-review","timestamp":"TIMESTAMP","status":"STATUS","initial_score":N,"overall_score":N,"product_type":"TYPE","tthw_current":"TTHW_CURRENT","tthw_target":"TTHW_TARGET","mode":"MODE","persona":"PERSONA","competitive_tier":"TIER","pass_scores":{"getting_started":N,"api_design":N,"errors":N,"docs":N,"upgrade":N,"dev_env":N,"community":N,"measurement":N},"unresolved":N,"commit":"COMMIT"}'
 ```
 
 Substitute values from the DX Scorecard. MODE is EXPANSION/POLISH/TRIAGE.

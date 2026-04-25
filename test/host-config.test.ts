@@ -3,7 +3,8 @@
  * host-config-export.ts, and golden-file regression checks.
  */
 
-import { describe, test, expect } from 'bun:test';
+import { describe, test as bunTest, expect } from 'bun:test';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { validateHostConfig, validateAllConfigs, type HostConfig } from '../scripts/host-config';
@@ -26,6 +27,12 @@ import {
 import { HOST_PATHS } from '../scripts/resolvers/types';
 
 const ROOT = path.resolve(import.meta.dir, '..');
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 45000 : 15000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT + 15000;
+
+function test(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
 
 // ─── hosts/index.ts ─────────────────────────────────────────
 
@@ -304,13 +311,15 @@ describe('host-config-export.ts CLI', () => {
   }
 
   function run(...args: string[]): { stdout: string; stderr: string; exitCode: number } {
-    const result = Bun.spawnSync(['bun', 'run', EXPORT_SCRIPT, ...args], {
-      cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
+    const result = spawnSync('bun', ['run', EXPORT_SCRIPT, ...args], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+      timeout: CLI_EXEC_TIMEOUT,
     });
     return {
-      stdout: result.stdout.toString().trim(),
-      stderr: result.stderr.toString().trim(),
-      exitCode: result.exitCode,
+      stdout: (result.stdout ?? '').trim(),
+      stderr: (result.stderr ?? '').trim(),
+      exitCode: result.status ?? -1,
     };
   }
 

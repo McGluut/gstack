@@ -54,7 +54,7 @@ When the user types `/canary`, run this skill.
 ### Phase 1: Setup
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
 mkdir -p .gstack/canary-reports
 mkdir -p .gstack/canary-reports/baselines
 mkdir -p .gstack/canary-reports/screenshots
@@ -118,7 +118,10 @@ Extract the top 5 internal navigation links from the `links` output. Always incl
 
 ### Phase 4: Pre-Deploy Snapshot (if no baseline exists)
 
-If no `baseline.json` exists, take a quick snapshot now as a reference point.
+If no `baseline.json` exists, take a quick snapshot now as a same-session reference point.
+This is not a true pre-deploy baseline. It can tell you whether the site stays stable during
+the monitor window, but it cannot prove a newly deployed change caused a problem if the issue
+already existed when monitoring began.
 
 For each page to monitor:
 
@@ -142,14 +145,17 @@ $B console --errors
 $B perf
 ```
 
-After each check, compare results against the baseline (or pre-deploy snapshot):
+After each check, compare results against the baseline (or same-session reference snapshot):
 
 1. **Page load failure** — `goto` returns error or timeout → CRITICAL ALERT
 2. **New console errors** — errors not present in baseline → HIGH ALERT
 3. **Performance regression** — load time exceeds 2x baseline → MEDIUM ALERT
 4. **Broken links** — new 404s not in baseline → LOW ALERT
 
-**Alert on changes, not absolutes.** A page with 3 console errors in the baseline is fine if it still has 3. One NEW error is an alert.
+**Alert on changes, not absolutes.** A page with 3 console errors in the baseline is fine if
+it still has 3. One NEW error is an alert. When you are using a same-session reference instead
+of a true pre-deploy baseline, frame alerts as "changed during monitoring" rather than "caused
+by this deploy" unless you have independent evidence.
 
 **Don't cry wolf.** Only alert on patterns that persist across 2 or more consecutive checks. A single transient network blip is not an alert.
 
@@ -228,6 +234,9 @@ If the user chooses A, copy the latest screenshots to the baselines directory an
 - **Alert on changes, not absolutes.** Compare against baseline, not industry standards.
 - **Screenshots are evidence.** Every alert includes a screenshot path. No exceptions.
 - **Transient tolerance.** Only alert on patterns that persist across 2+ consecutive checks.
-- **Baseline is king.** Without a baseline, canary is a health check. Encourage `--baseline` before deploying.
+- **Baseline is usually the best available comparator for deploy-level regressions.** Without a true pre-deploy
+  baseline, canary becomes a health-and-stability check, not a clean deploy-regression proof.
+  Encourage `--baseline`
+  before deploying.
 - **Performance thresholds are relative.** 2x baseline is a regression. 1.5x might be normal variance.
 - **Read-only.** Observe and report. Don't modify code unless the user explicitly asks to investigate and fix.

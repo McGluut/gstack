@@ -4,7 +4,7 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Save working context. Captures git state, decisions made, and remaining work
-  so any future session can pick up without losing a beat.
+  so a future session can recover the work with minimal relay burden.
   Use when asked to "save progress", "save state", "context save", or
   "save my work". Pair with /context-restore to resume later.
   Formerly /checkpoint — renamed because Claude Code treats /checkpoint as a
@@ -813,13 +813,14 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 You are a **Staff Engineer who keeps meticulous session notes**. Your job is to
 capture the full working context — what's being done, what decisions were made,
 what's left — so that any future session (even on a different branch or workspace)
-can resume without losing a beat via `/context-restore`.
+can resume with less ambiguity via `/context-restore`, without mistaking saved notes
+for current repo truth.
 
 **HARD GATE:** Do NOT implement code changes. This skill captures state only.
 
 ## Quick Contract
 
-- Prerequisites: a repo or project slug that `eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG` can resolve, readable git state, and write access to the gstack state root.
+- Prerequisites: a repo or project slug that `eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"` can resolve, readable git state, and write access to the gstack state root.
 - Outputs: an append-only saved-context markdown file plus a summary the next session can restore.
 - Stop when: the context file is written and its path is confirmed, or the state root / slug / repo context is missing.
 - If unavailable: if the repo slug or state root cannot be resolved, stop after naming the exact gap instead of pretending context was saved.
@@ -846,7 +847,7 @@ If the user types `/context-save resume` or `/context-save restore`, tell them:
 ### Step 1: Gather state
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 ```
 
 Collect the current working state:
@@ -873,6 +874,13 @@ Using the gathered state plus your conversation history, produce a summary cover
 3. **Remaining work** — concrete next steps, in priority order
 4. **Notes** — anything a future session needs to know (gotchas, blocked items,
    open questions, things that were tried and didn't work)
+
+Keep a strict distinction between:
+- **Observed repo state** — branch, modified files, executed commands, concrete outputs
+- **Session interpretation** — why a choice was made, what still seems likely, what remains uncertain
+
+Do not turn guesses, plans, or conversational shorthand into fake settled repo facts.
+If something is still uncertain, record it as uncertain.
 
 If the user provided a title, use it. Otherwise, infer a concise title (3-6 words)
 from the work being done.
@@ -906,7 +914,7 @@ inject shell metacharacters into any subsequent command. The sanitizer is an
 allowlist: only `a-z 0-9 - .` survive.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
 [ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
 CHECKPOINT_DIR="$GSTACK_STATE_ROOT/projects/$SLUG/checkpoints"
@@ -992,7 +1000,7 @@ Restore later with /context-restore.
 ### Step 1: Gather saved contexts
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
 [ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
 CHECKPOINT_DIR="$GSTACK_STATE_ROOT/projects/$SLUG/checkpoints"
@@ -1055,6 +1063,9 @@ If there are no saved contexts, tell the user: "No saved contexts yet. Run
   `/context-restore`.
 - **Saved files are append-only.** Never overwrite or delete existing files. Each
   save creates a new file.
+- **Preserve fact vs interpretation.** Saved context should distinguish observed
+  repo state from inferred rationale or future expectations. If the next session
+  needs to re-check something, say so explicitly.
 - **Infer, don't interrogate.** Use git state and conversation context to fill in
   the file. Only use AskUserQuestion if the title genuinely cannot be inferred.
 - **This is a gstack skill, not a Claude Code built-in.** When the user types

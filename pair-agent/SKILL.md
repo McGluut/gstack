@@ -840,10 +840,12 @@ able to browse the web using YOUR browser. This skill makes that happen.
 Your gstack browser runs a local HTTP server. This skill creates a one-time setup key,
 prints a block of instructions, and you paste those instructions into the other agent.
 The other agent exchanges the key for a session token, creates its own tab, and starts
-browsing. Each agent gets its own tab. They can't mess with each other's tabs.
+browsing. Each agent gets its own tab. Normal browse actions stay scoped to the tab
+that agent created, but do not describe this as a full security boundary.
 
-The setup key expires in 5 minutes and can only be used once. If it leaks, it's dead
-before anyone can abuse it. The session token lasts 24 hours.
+The setup key expires in 5 minutes and can only be used once. That keeps the exposure
+window small, but leaked instructions are still sensitive until the key is redeemed or
+expires. The session token lasts 24 hours unless you revoke it sooner.
 
 **Same machine:** If the other agent is on the same machine (like OpenClaw running
 locally), you can skip the copy-paste ceremony and write the credentials directly to
@@ -1050,7 +1052,7 @@ With default (read+write) access:
 
 With admin access (--admin flag):
 - Everything above, plus JS execution, cookie access, storage access
-- Use sparingly. Only for agents you fully trust.
+- Use sparingly. Only for agents you fully trust, and revoke it when the task is done.
 
 ## Troubleshooting
 
@@ -1075,20 +1077,20 @@ generate a new setup key.
 
 OpenClaw agents use the `exec` tool instead of `Bash`. The instruction block uses
 `exec curl` syntax which OpenClaw understands natively. When using `--local openclaw`,
-credentials are written to `~/.openclaw/skills/gstack/browse-remote.json`.
+credentials are written to `${OPENCLAW_HOME:-$HOME/.openclaw}/skills/gstack/browse-remote.json`.
 
 
 ### Codex
 
 Codex agents can execute shell commands via `codex exec`. The instruction block's
 curl commands work directly. When using `--local codex`, credentials are written
-to `~/.codex/skills/gstack/browse-remote.json`.
+to `${CODEX_HOME:-$HOME/.codex}/skills/gstack/browse-remote.json`.
 
 ### Cursor
 
 Cursor's AI can run terminal commands. The instruction block works as-is.
 When using `--local cursor`, credentials are written to
-`~/.cursor/skills/gstack/browse-remote.json`.
+`${CURSOR_HOME:-$HOME/.cursor}/skills/gstack/browse-remote.json`.
 
 ## Revoking access
 

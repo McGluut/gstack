@@ -2,8 +2,9 @@
 name: unfreeze
 version: 0.1.0
 description: |
-  Clear the freeze boundary set by /freeze, allowing edits to all directories
-  again. Use when you want to widen edit scope without ending the session.
+  Clear the freeze boundary set by /freeze, so Edit and Write are no longer
+  blocked by that path restriction. Use when you want to widen edit scope
+  without ending the session.
   Use when asked to "unfreeze", "unlock edits", "remove freeze", or
   "allow all edits". (gstack)
 triggers:
@@ -17,9 +18,10 @@ allowed-tools:
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
 
-# /unfreeze — Clear Freeze Boundary
+# /unfreeze - Clear Freeze Boundary
 
-Remove the edit restriction set by `/freeze`, allowing edits to all directories.
+Remove the edit restriction set by `/freeze`, so Edit and Write are no longer
+blocked by that freeze path.
 
 ## Quick Contract
 
@@ -43,12 +45,12 @@ STATE_DIR="${CLAUDE_PLUGIN_DATA:-${GSTACK_HOME:-${HOME:+$HOME/.gstack}}}"
 if [ -f "$STATE_DIR/freeze-dir.txt" ]; then
   PREV=$(cat "$STATE_DIR/freeze-dir.txt")
   rm -f "$STATE_DIR/freeze-dir.txt"
-  echo "Freeze boundary cleared (was: $PREV). Edits are now allowed everywhere."
+  echo "Freeze boundary cleared (was: $PREV). Freeze no longer blocks Edit or Write outside that path."
 else
   echo "No freeze boundary was set."
 fi
 ```
 
 Tell the user the result. Note that `/freeze` hooks are still registered for the
-session — they will just allow everything since no state file exists. To re-freeze,
-run `/freeze` again.
+session - they stop denying paths once no freeze state file exists. To
+re-freeze, run `/freeze` again.

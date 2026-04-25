@@ -6,18 +6,27 @@
  * for full isolation.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test as bunTest, expect, beforeEach, afterEach } from 'bun:test';
+import { spawnSync } from 'child_process';
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync, symlinkSync, copyFileSync, chmodSync, utimesSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { resolveBash } from '../../test/helpers/bash';
 
 const SCRIPT = join(import.meta.dir, '..', '..', 'bin', 'gstack-update-check');
+const BASH = resolveBash();
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 45000 : 10000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT + 15000;
 
 let gstackDir: string;
 let stateDir: string;
 
+function test(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
+
 function run(extraEnv: Record<string, string> = {}, args: string[] = []) {
-  const result = Bun.spawnSync(['bash', SCRIPT, ...args], {
+  const result = spawnSync(BASH, [SCRIPT, ...args], {
     env: {
       ...process.env,
       GSTACK_DIR: gstackDir,
@@ -25,13 +34,13 @@ function run(extraEnv: Record<string, string> = {}, args: string[] = []) {
       GSTACK_REMOTE_URL: `file://${join(gstackDir, 'REMOTE_VERSION')}`,
       ...extraEnv,
     },
-    stdout: 'pipe',
-    stderr: 'pipe',
+    encoding: 'utf-8',
+    timeout: CLI_EXEC_TIMEOUT,
   });
   return {
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString().trim(),
-    stderr: result.stderr.toString().trim(),
+    exitCode: result.status ?? -1,
+    stdout: (result.stdout ?? '').trim(),
+    stderr: (result.stderr ?? '').trim(),
   };
 }
 

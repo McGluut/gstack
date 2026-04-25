@@ -486,9 +486,9 @@ this session. Only run skills the user explicitly invokes. This preference persi
 sessions via `gstack-config`.
 
 If `PROACTIVE` is `true` (default): **invoke the Skill tool** when the user's request
-matches a skill's purpose. Do NOT answer directly when a skill exists for the task.
-Use the Skill tool to invoke it. The skill has specialized workflows, checklists, and
-quality gates that produce better results than answering inline.
+clearly matches a skill's purpose. Do not stay inline just because a direct answer feels
+faster. Use the Skill tool when the structured workflow is likely to improve adequacy,
+coverage, or verification. If no skill clearly matches, answer directly.
 
 **Routing rules — when you see these patterns, INVOKE the skill via the Skill tool:**
 - User describes a new idea, asks "is this worth building", brainstorms, pitches a concept → invoke `/office-hours`
@@ -525,11 +525,11 @@ quality gates that produce better results than answering inline.
 - User asks to tune question sensitivity, "stop asking me that" → invoke `/plan-tune`
 - User asks for code quality dashboard, "health check" → invoke `/health`
 
-**When in doubt, invoke the skill.** A false positive (invoking a skill that wasn't
-needed) is cheaper than a false negative (answering ad-hoc when a structured workflow
-exists). The skill provides multi-step workflows, checklists, and quality gates that
-always produce better results than an ad-hoc answer. If no skill matches, answer
-directly as usual.
+**Default toward the skill when the match is plausible and the task is non-trivial.**
+A false positive (invoking a skill that turns out unnecessary) is often cheaper than a
+false negative (answering ad-hoc when a structured workflow exists), but this is a
+default, not a blind law. Use the skill when it materially improves the work; stay
+inline when the request is simpler than the workflow it would trigger.
 
 If the user opts out of suggestions, run `gstack-config set proactive false`.
 If they opt back in, run `gstack-config set proactive true`.
@@ -578,7 +578,10 @@ If `NEEDS_SETUP`:
 ## IMPORTANT
 
 - Use the compiled binary via Bash: `$B <command>`
-- NEVER use `mcp__claude-in-chrome__*` tools. They are slow and unreliable.
+- Do not default to `mcp__claude-in-chrome__*` tools. Prefer the compiled
+  `$B` path because it is faster and more reliable. If the compiled path is
+  unavailable or broken and browser work still matters, fall back explicitly
+  and name the degraded path to the user.
 - Browser persists between calls — cookies, login sessions, and tabs carry over.
 - Dialogs (alert/confirm/prompt) are auto-accepted by default — no browser lockup.
 - **Show screenshots:** After `$B screenshot`, `$B snapshot -a -o`, or `$B responsive`, always use the Read tool on the output PNG(s) so the user can see them. Without this, screenshots are invisible.
@@ -587,6 +590,13 @@ If `NEEDS_SETUP`:
 
 > **Credential safety:** Use environment variables for test credentials.
 > Set them before running: `export TEST_EMAIL="..." TEST_PASSWORD="..."`
+
+When you need saved screenshots or comparison artifacts, use a writable temp root instead of assuming `/tmp`:
+
+```bash
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+```
 
 ### Test a user flow (login, signup, checkout, etc.)
 
@@ -605,7 +615,7 @@ $B click @e5
 # 4. Verify it worked
 $B snapshot -D              # diff shows what changed after clicking
 $B is visible ".dashboard"  # assert the dashboard appeared
-$B screenshot /tmp/after-login.png
+$B screenshot "$TMP_ROOT/after-login.png"
 ```
 
 ### Verify a deployment / check prod
@@ -617,7 +627,7 @@ $B console                       # any JS errors?
 $B network                       # any failed requests?
 $B js "document.title"           # correct title?
 $B is visible ".hero-section"    # key elements present?
-$B screenshot /tmp/prod-check.png
+$B screenshot "$TMP_ROOT/prod-check.png"
 ```
 
 ### Dogfood a feature end-to-end
@@ -627,7 +637,7 @@ $B screenshot /tmp/prod-check.png
 $B goto https://app.example.com/new-feature
 
 # Take annotated screenshot — shows every interactive element with labels
-$B snapshot -i -a -o /tmp/feature-annotated.png
+$B snapshot -i -a -o "$TMP_ROOT/feature-annotated.png"
 
 # Find ALL clickable things (including divs with cursor:pointer)
 $B snapshot -C
@@ -651,24 +661,24 @@ $B console
 ```bash
 # Quick: 3 screenshots at mobile/tablet/desktop
 $B goto https://yourapp.com
-$B responsive /tmp/layout
+$B responsive "$TMP_ROOT/layout"
 
 # Manual: specific viewport
 $B viewport 375x812     # iPhone
-$B screenshot /tmp/mobile.png
+$B screenshot "$TMP_ROOT/mobile.png"
 $B viewport 1440x900    # Desktop
-$B screenshot /tmp/desktop.png
+$B screenshot "$TMP_ROOT/desktop.png"
 
 # Element screenshot (crop to specific element)
-$B screenshot "#hero-banner" /tmp/hero.png
+$B screenshot "#hero-banner" "$TMP_ROOT/hero.png"
 $B snapshot -i
-$B screenshot @e3 /tmp/button.png
+$B screenshot @e3 "$TMP_ROOT/button.png"
 
 # Region crop
-$B screenshot --clip 0,0,800,600 /tmp/above-fold.png
+$B screenshot --clip 0,0,800,600 "$TMP_ROOT/above-fold.png"
 
 # Viewport only (no scroll)
-$B screenshot --viewport /tmp/viewport.png
+$B screenshot --viewport "$TMP_ROOT/viewport.png"
 ```
 
 ### Test file upload
@@ -678,7 +688,7 @@ $B goto https://app.example.com/upload
 $B snapshot -i
 $B upload @e3 /path/to/test-file.pdf
 $B is visible ".upload-success"
-$B screenshot /tmp/upload-result.png
+$B screenshot "$TMP_ROOT/upload-result.png"
 ```
 
 ### Test forms with validation
@@ -724,7 +734,7 @@ $B cookie-import-browser comet --domain .github.com
 # Now test authenticated pages
 $B goto https://github.com/settings/profile
 $B snapshot -i
-$B screenshot /tmp/github-profile.png
+$B screenshot "$TMP_ROOT/github-profile.png"
 ```
 
 > **Cookie safety:** `cookie-import-browser` transfers real session data.
@@ -746,7 +756,7 @@ echo '[
   ["fill","@e4","$TEST_PASSWORD"],
   ["click","@e5"],
   ["snapshot","-D"],
-  ["screenshot","/tmp/result.png"]
+  ["screenshot","$TMP_ROOT/result.png"]
 ]' | $B chain
 ```
 

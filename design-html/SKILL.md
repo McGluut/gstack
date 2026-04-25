@@ -865,7 +865,7 @@ Commands:
 - `$D iterate --session /path/session.json --feedback "..." --output /path.png` — iterate
 
 **CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to `~/.gstack/projects/$SLUG/designs/`, NEVER to `.context/`,
+MUST be saved to `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/designs/`, NEVER to `.context/`,
 `docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
 data, not project files. They persist across branches, conversations, and workspaces.
 
@@ -995,8 +995,8 @@ If `NEEDS_SETUP`:
 ## Step 0: Input Detection
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
-PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"
 [ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 ```
 
@@ -1064,8 +1064,9 @@ Use AskUserQuestion:
 > C) I have a PNG — let me provide the path
 
 If A: tell the user to run /design-shotgun, then come back to /design-html.
-If B: proceed to Step 1 in "plan-driven mode." There is no approved PNG, the plan is
-the source of truth. Ask the user for a screen name to use for the output directory
+If B: proceed to Step 1 in "plan-driven mode." There is no approved PNG, so the plan is
+the primary design input. Treat it as the best available screen-direction record, then
+reconcile it with explicit project constraints and later user corrections. Ask the user for a screen name to use for the output directory
 (e.g., "landing-page", "dashboard", "pricing").
 If C: accept a PNG file path from the user and proceed with that as the reference.
 
@@ -1400,7 +1401,7 @@ echo "PID: $_SERVER_PID"
 
 If python3 is not available, fall back to:
 ```bash
-~/.claude/skills/gstack/bin/gstack-open-url "<path-to-finalized.html>"
+[ -x "$GSTACK_BIN/gstack-open-url" ] && "$GSTACK_BIN/gstack-open-url" "<path-to-finalized.html>" || printf '%s\n' "<path-to-finalized.html>"
 ```
 
 Tell the user: "Live preview running at http://localhost:$_PORT/finalized.html.
@@ -1443,7 +1444,7 @@ If `$B` is not available, skip verification and note:
 ```
 LOOP:
   1. If server is running, tell user to open http://localhost:PORT/finalized.html
-     Otherwise: open <path>/finalized.html (or use `~/.claude/skills/gstack/bin/gstack-open-url` if available)
+     Otherwise: open <path>/finalized.html (or use `$GSTACK_BIN/gstack-open-url` if available)
 
   2. If an approved mockup PNG exists, show it inline (Read tool) for visual comparison.
      If in plan-driven or freeform mode, skip this step.
@@ -1527,14 +1528,19 @@ Use AskUserQuestion:
 
 ## Important Rules
 
-- **Source of truth fidelity over code elegance.** When an approved mockup exists,
-  pixel-match it. If that requires `width: 312px` instead of a CSS grid class, that's
-  correct. When in plan-driven or freeform mode, the user's feedback during the
-  refinement loop is the source of truth. Code cleanup happens later during
-  component extraction.
+- **Primary render-reference fidelity over code elegance.** When an approved mockup
+  exists, pixel-match it. If that requires `width: 312px` instead of a CSS grid
+  class, that's correct. When in plan-driven or freeform mode, the user's feedback
+  during the refinement loop is the primary screen-direction signal, but it does
+  not override explicit project constraints, accessibility requirements, or already
+  agreed system-level design tokens. Code cleanup happens later during component
+  extraction.
 
-- **Always use Pretext for text layout.** Even if the design looks simple, Pretext
-  ensures correct height computation on resize. The overhead is 30KB. Every page benefits.
+- **Default to Pretext for text layout.** It is the preferred engine here because it
+  handles resize-aware text layout honestly. If an existing project architecture,
+  host constraint, or framework boundary makes Pretext clearly wrong for this page,
+  name that constraint explicitly before deviating. Do not drop it just because plain
+  CSS looks simpler in the first draft.
 
 - **Surgical edits in the refinement loop.** Use the Edit tool to make targeted changes,
   not the Write tool to regenerate the entire file. The user may have made manual edits

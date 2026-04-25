@@ -84,8 +84,8 @@ Read the user's message. Route based on plain-English intent, not keywords:
 5. **"Update my profile" / "I'm more boil-the-ocean than that" / "I've changed
    my mind"** → run `Edit declared profile` (confirm before writing).
 6. **"Show the gap" / "how far off is my profile"** → run `Show gap`.
-7. **"Turn it off" / "disable"** → `~/.claude/skills/gstack/bin/gstack-config set question_tuning false`
-8. **"Turn it on" / "enable"** → `~/.claude/skills/gstack/bin/gstack-config set question_tuning true`
+7. **"Turn it off" / "disable"** → `"$GSTACK_BIN/gstack-config" set question_tuning false`
+8. **"Turn it on" / "enable"** → `"$GSTACK_BIN/gstack-config" set question_tuning true`
 9. **Clear ambiguity** — if you can't tell what the user wants, ask plainly:
    "Do you want to (a) see your profile, (b) review recent questions, (c) set
    a preference, (d) update your declared profile, or (e) turn it off?"
@@ -104,7 +104,7 @@ Power-user shortcuts (one-word invocations) — handle these too:
 
 1. Read the current state:
    ```bash
-   _QT=$(~/.claude/skills/gstack/bin/gstack-config get question_tuning 2>/dev/null || echo "false")
+_QT=$("$GSTACK_BIN/gstack-config" get question_tuning 2>/dev/null || echo "false")
    echo "QUESTION_TUNING: $_QT"
    ```
 
@@ -124,7 +124,7 @@ Power-user shortcuts (one-word invocations) — handle these too:
 
 3. If A or B: enable:
    ```bash
-   ~/.claude/skills/gstack/bin/gstack-config set question_tuning true
+"$GSTACK_BIN/gstack-config" set question_tuning true
    ```
 
 4. If A (full setup), ask FIVE one-per-dimension declaration questions via
@@ -157,11 +157,11 @@ Power-user shortcuts (one-word invocations) — handle these too:
 
    After each answer, map A/B/C to the numeric value and save the declared
    dimension. Write each declaration directly into
-   `~/.gstack/developer-profile.json` under `declared.{dimension}`:
+`${GSTACK_HOME:-$HOME/.gstack}/developer-profile.json` under `declared.{dimension}`:
 
    ```bash
    # Ensure profile exists
-   ~/.claude/skills/gstack/bin/gstack-developer-profile --read >/dev/null
+"$GSTACK_BIN/gstack-developer-profile" --read >/dev/null
    # Update declared dimensions atomically
    _PROFILE="${GSTACK_HOME:-$HOME/.gstack}/developer-profile.json"
    bun -e "
@@ -190,7 +190,7 @@ Power-user shortcuts (one-word invocations) — handle these too:
 ## Inspect profile
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-developer-profile --profile
+"$GSTACK_BIN/gstack-developer-profile" --profile
 ```
 
 Parse the JSON. Present in **plain English**, not raw floats:
@@ -223,7 +223,7 @@ Parse the JSON. Present in **plain English**, not raw floats:
 ## Review question log
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
 _LOG="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/question-log.jsonl"
 if [ ! -f "$_LOG" ]; then
   echo "NO_LOG"
@@ -282,7 +282,7 @@ scope expansion comes up", etc).
 
 4. Write:
    ```bash
-   ~/.claude/skills/gstack/bin/gstack-question-preference --write '{"question_id":"<id>","preference":"<never-ask|always-ask|ask-only-for-one-way>","source":"plan-tune","free_text":"<original phrase>"}'
+"$GSTACK_BIN/gstack-question-preference" --write '{"question_id":"<id>","preference":"<never-ask|always-ask|ask-only-for-one-way>","source":"plan-tune","free_text":"<original phrase>"}'
    ```
 
 5. Confirm: "Set `<id>` → `<preference>`. Active immediately. One-way doors
@@ -337,7 +337,7 @@ is a trust boundary (Codex #15 in the design doc).
 ## Show gap
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-developer-profile --gap
+"$GSTACK_BIN/gstack-developer-profile" --gap
 ```
 
 Parse the JSON. For each dimension where both declared and inferred exist:
@@ -356,12 +356,12 @@ the user decides whether declared is wrong or behavior is wrong.
 ## Stats
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-question-preference --stats
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
+"$GSTACK_BIN/gstack-question-preference" --stats
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
 _LOG="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/question-log.jsonl"
 [ -f "$_LOG" ] && echo "TOTAL_LOGGED: $(wc -l < "$_LOG" | tr -d ' ')" || echo "TOTAL_LOGGED: 0"
 _PROFILE_JSON="$(mktemp)"
-~/.claude/skills/gstack/bin/gstack-developer-profile --profile > "$_PROFILE_JSON"
+"$GSTACK_BIN/gstack-developer-profile" --profile > "$_PROFILE_JSON"
 PROFILE_JSON="$_PROFILE_JSON" bun -e "
   const p = JSON.parse(require('fs').readFileSync(process.env.PROFILE_JSON, 'utf-8'));
   const d = p.inferred?.diversity || {};

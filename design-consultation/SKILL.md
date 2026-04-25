@@ -5,8 +5,8 @@ version: 1.0.0
 description: |
   Design consultation: understands your product, researches the landscape, proposes a
   complete design system (aesthetic, typography, color, layout, spacing, motion), and
-  generates font+color preview pages. Creates DESIGN.md as your project's design source
-  of truth. For existing sites, use /plan-design-review to infer the system instead.
+  generates font+color preview pages. Creates DESIGN.md as your project's primary
+  design record. For existing sites, use /plan-design-review to infer the system instead.
   Use when asked to "design system", "brand guidelines", or "create DESIGN.md".
   Proactively suggest when starting a new project's UI with no existing
   design system or DESIGN.md. (gstack)
@@ -958,7 +958,7 @@ Commands:
 - `$D iterate --session /path/session.json --feedback "..." --output /path.png` — iterate
 
 **CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to `~/.gstack/projects/$SLUG/designs/`, NEVER to `.context/`,
+MUST be saved to `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/designs/`, NEVER to `.context/`,
 `docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
 data, not project files. They persist across branches, conversations, and workspaces.
 
@@ -1026,15 +1026,16 @@ thing you want someone to remember after they see this product for the first tim
 One sentence answer. Could be a feeling ("this is serious software for serious work"),
 a visual ("the blue that's almost black"), a claim ("faster than anything else"), or
 a posture ("for builders, not managers"). Write it down. Every subsequent design
-decision should serve this memorable thing. Design that tries to be memorable for
-everything is memorable for nothing.
+decision should treat this memorable thing as the primary organizing constraint,
+not as permission to ignore readability, accessibility, trust, or the product's real
+jobs. Design that tries to be memorable for everything is memorable for nothing.
 
 ### Taste profile (if this user has prior sessions)
 
 Read the persistent taste profile if it exists:
 
 ```bash
-_TASTE_PROFILE=~/.gstack/projects/$SLUG/taste-profile.json
+_TASTE_PROFILE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/taste-profile.json"
 if [ -f "$_TASTE_PROFILE" ]; then
   # Schema v1: { dimensions: { fonts, colors, layouts, aesthetics }, sessions: [] }
   # Each dimension has approved[] and rejected[] entries with
@@ -1123,7 +1124,7 @@ Summarize conversationally:
 **Graceful degradation:**
 - Browse available → screenshots + snapshots + WebSearch (richest research)
 - Browse unavailable → WebSearch only (still good)
-- WebSearch also unavailable → agent's built-in design knowledge (always works)
+- WebSearch also unavailable → agent's built-in design knowledge (still usable as a starting point, but say that outside signals are missing and carry the extra uncertainty forward)
 
 If the user said no research, skip entirely and proceed to Phase 3 using your built-in design knowledge.
 
@@ -1217,16 +1218,17 @@ This system is coherent because [explain how choices reinforce each other].
 SAFE CHOICES (category baseline — your users expect these):
   - [2-3 decisions that match category conventions, with rationale for playing safe]
 
-RISKS (where your product gets its own face):
-  - [2-3 deliberate departures from convention]
-  - For each risk: what it is, why it works, what you gain, what it costs
+RISKS (where your product may earn a distinct face):
+  - [0-3 deliberate departures from convention]
+  - For each risk: what it is, why it works here, what you gain, what it costs
 
 The safe choices keep you literate in your category. The risks are where
-your product becomes memorable. Which risks appeal to you? Want to see
+your product may become memorable, if differentiation is actually warranted.
+Which risks appeal to you? Want to see
 different ones? Or adjust anything else?
 ```
 
-The SAFE/RISK breakdown is critical. Design coherence is table stakes — every product in a category can be coherent and still look identical. The real question is: where do you take creative risks? The agent should always propose at least 2 risks, each with a clear rationale for why the risk is worth taking and what the user gives up. Risks might include: an unexpected typeface for the category, a bold accent color nobody else uses, tighter or looser spacing than the norm, a layout approach that breaks from convention, motion choices that add personality.
+The SAFE/RISK breakdown is critical. Design coherence is table stakes — every product in a category can be coherent and still look identical. The harder question is whether this product benefits from visible differentiation, and where. Propose risks only when you can defend them from the product context, memorable-thing answer, or competitive gap. A trust-first or utility-first product may justify zero deliberate risks. When you do propose one, make the tradeoff explicit: why the departure is worth it, what it costs, and what evidence makes it fit this product rather than design theater. Risks might include: an unexpected typeface for the category, a bold accent color nobody else uses, tighter or looser spacing than the norm, a layout approach that breaks from convention, motion choices that add personality.
 
 **Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — show me wilder options. D) Start over with a different direction. E) Skip the preview, just write DESIGN.md.
 
@@ -1291,7 +1293,8 @@ When the user overrides one section, check if the rest still coheres. Flag misma
 - Brutalist/Minimal aesthetic + expressive motion → "Heads up: brutalist aesthetics usually pair with minimal motion. Your combo is unusual — which is fine if intentional. Want me to suggest motion that fits, or keep it?"
 - Expressive color + restrained decoration → "Bold palette with minimal decoration can work, but the colors will carry a lot of weight. Want me to suggest decoration that supports the palette?"
 - Creative-editorial layout + data-heavy product → "Editorial layouts are gorgeous but can fight data density. Want me to show how a hybrid approach keeps both?"
-- Always accept the user's final choice. Never refuse to proceed.
+- Always accept the user's final choice on taste. If the choice conflicts with readability,
+  accessibility, or another hard product constraint, say that plainly before proceeding.
 
 ---
 
@@ -1317,8 +1320,8 @@ This phase generates visual previews of the proposed design system. Two paths de
 Generate AI-rendered mockups showing the proposed design system applied to realistic screens for this product. This is far more powerful than an HTML preview — the user sees what their product could actually look like.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
-PROJECT_STORE="${HOME:+$HOME/.gstack/projects/$SLUG}"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${GSTACK_HOME:-${HOME:+$HOME/.gstack}}/projects/$SLUG"
 [ -n "$PROJECT_STORE" ] || PROJECT_STORE=".gstack/projects/$SLUG"
 _DESIGN_DIR="$PROJECT_STORE/designs/design-system-$(date +%Y%m%d)"
 mkdir -p "$_DESIGN_DIR"
@@ -1472,7 +1475,7 @@ PREVIEW_FILE="$TMP_ROOT/design-consultation-preview-$(date +%s).html"
 Write the preview HTML to `$PREVIEW_FILE`, then open it:
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-open-url "$PREVIEW_FILE"
+[ -x "$GSTACK_BIN/gstack-open-url" ] && "$GSTACK_BIN/gstack-open-url" "$PREVIEW_FILE" || printf '%s\n' "$PREVIEW_FILE"
 ```
 
 ### Preview Page Requirements (Path B only)
@@ -1502,7 +1505,7 @@ The agent writes a **single, self-contained HTML file** (no framework dependenci
 
 The page should make the user think "oh nice, they thought of this." It's selling the design system by showing what the product could feel like, not just listing hex codes and font names.
 
-If `~/.claude/skills/gstack/bin/gstack-open-url` fails or automatic opening is unavailable, tell the user: *"I wrote the preview to [path]. Open that file in your browser to see the fonts and colors rendered."*
+If `$GSTACK_BIN/gstack-open-url` fails or automatic opening is unavailable, tell the user: *"I wrote the preview to [path]. Open that file in your browser to see the fonts and colors rendered."*
 
 If the user says skip the preview, go directly to Phase 6.
 
@@ -1574,9 +1577,11 @@ If `$D extract` was used in Phase 5 (Path A), use the extracted tokens as the pr
 
 ```markdown
 ## Design System
-Always read DESIGN.md before making any visual or UI decisions.
-All font choices, colors, spacing, and aesthetic direction are defined there.
-Do not deviate without explicit user approval.
+Read DESIGN.md before making visual or UI decisions.
+Treat it as the primary record for font choices, colors, spacing, and aesthetic direction,
+then reconcile it with later user instructions and hard product constraints.
+Do not drift from it casually; if current evidence or user direction contradicts it, surface
+the mismatch instead of silently treating the file as unquestionable authority.
 In QA mode, flag any code that doesn't match DESIGN.md.
 ```
 
@@ -1628,5 +1633,5 @@ already knows. A good test: would this insight save time in a future session? If
 4. **Never recommend blacklisted or overused fonts as primary.** If the user specifically requests one, comply but explain the tradeoff.
 5. **The preview page must be beautiful.** It's the first visual output and sets the tone for the whole skill.
 6. **Conversational tone.** This isn't a rigid workflow. If the user wants to talk through a decision, engage as a thoughtful design partner.
-7. **Accept the user's final choice.** Nudge on coherence issues, but never block or refuse to write a DESIGN.md because you disagree with a choice.
+7. **Accept the user's final choice.** Nudge on coherence issues, and name any readability, accessibility, or trust cost plainly, but never block or refuse to write a DESIGN.md because you disagree with a taste choice.
 8. **No AI slop in your own output.** Your recommendations, your preview page, your DESIGN.md — all should demonstrate the taste you're asking the user to adopt.

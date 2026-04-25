@@ -487,7 +487,8 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 Turn `.md` files into PDFs that look like Faber & Faber essays: 1in margins,
 left-aligned body, Helvetica throughout, curly quotes and em dashes, optional
 cover page and clickable TOC, diagonal DRAFT watermark when you need it.
-Copy-paste from the PDF produces clean words, never "S a i l i n g".
+Copy-paste from the PDF should produce clean words rather than fragmented text
+like "S a i l i n g"; if it does not, treat that as a render defect and surface it.
 
 ## Quick Contract
 
@@ -575,7 +576,7 @@ $P preview essay.md
 
 Renders HTML with the same print CSS and tries to open it in your browser.
 If automatic opening is unavailable, surface the preview path and use
-`~/.claude/skills/gstack/bin/gstack-open-url` when that helper exists. Refresh as you edit the
+`$GSTACK_BIN/gstack-open-url` when that helper exists. Refresh as you edit the
 markdown. Skip the PDF round trip until you're ready.
 
 ### Brand-free (no CONFIDENTIAL footer)
@@ -646,10 +647,10 @@ If the user has a `.md` file open and says "make it look nice", propose
 ## Output contract
 
 ```
-stdout: /tmp/letter.pdf          ← just the path, one line (or the equivalent temp-root path on this host)
+stdout: .gstack/tmp/letter.pdf   ← just the path, one line (or the equivalent temp-root path on this host)
 stderr: Rendering HTML...        ← progress spinner (unless --quiet)
         Generating PDF...
-        Done in 1.5s. 43 words · 22KB · /tmp/letter.pdf
+        Done in 1.5s. 43 words · 22KB · .gstack/tmp/letter.pdf
 
 exit code: 0 success / 1 bad args / 2 render error / 3 Paged.js timeout
            / 4 browse unavailable

@@ -5,20 +5,36 @@
  * Each test creates real git worktrees in a temporary repo.
  */
 
-import { describe, test, expect, afterEach } from 'bun:test';
+import { describe, test as bunTest, expect, afterEach } from 'bun:test';
 import { WorktreeManager } from '../lib/worktree';
-import type { HarvestResult } from '../lib/worktree';
-import { spawnSync } from 'child_process';
+import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+const GIT_EXEC_TIMEOUT = process.platform === 'win32' ? 120000 : 15000;
+const DEFAULT_GIT_TEST_TIMEOUT = GIT_EXEC_TIMEOUT + 30000;
+
+function test(name: string, fn: () => void, timeout = DEFAULT_GIT_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
+
+function runGit(cwd: string, args: string[]) {
+  const execOpts: SpawnSyncOptionsWithStringEncoding = {
+    cwd,
+    stdio: 'pipe',
+    encoding: 'utf-8',
+    timeout: GIT_EXEC_TIMEOUT,
+  };
+  return spawnSync('git', args, execOpts);
+}
+
 /** Create a minimal git repo in a tmpdir for testing. */
 function createTestRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-test-'));
-  spawnSync('git', ['init'], { cwd: dir, stdio: 'pipe' });
-  spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'pipe' });
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'pipe' });
+  runGit(dir, ['init']);
+  runGit(dir, ['config', 'user.email', 'test@test.com']);
+  runGit(dir, ['config', 'user.name', 'Test']);
 
   // Create initial commit so HEAD exists
   fs.writeFileSync(path.join(dir, 'README.md'), '# Test repo\n');
@@ -31,8 +47,8 @@ function createTestRepo(): string {
   fs.mkdirSync(path.join(dir, 'browse', 'dist'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'browse', 'dist', 'browse'), '#!/bin/sh\necho browse\n');
 
-  spawnSync('git', ['add', 'README.md', '.gitignore'], { cwd: dir, stdio: 'pipe' });
-  spawnSync('git', ['commit', '-m', 'Initial commit'], { cwd: dir, stdio: 'pipe' });
+  runGit(dir, ['add', 'README.md', '.gitignore']);
+  runGit(dir, ['commit', '-m', 'Initial commit']);
 
   return dir;
 }
@@ -40,7 +56,7 @@ function createTestRepo(): string {
 /** Clean up a test repo. */
 function cleanupRepo(dir: string): void {
   // Prune worktrees first to avoid git lock issues
-  spawnSync('git', ['worktree', 'prune'], { cwd: dir, stdio: 'pipe' });
+  runGit(dir, ['worktree', 'prune']);
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -94,8 +110,7 @@ describe('WorktreeManager', () => {
     repos.push(repo);
     const mgr = new WorktreeManager(repo);
 
-    const expectedSha = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, stdio: 'pipe' })
-      .stdout.toString().trim();
+    const expectedSha = runGit(repo, ['rev-parse', 'HEAD']).stdout.trim();
 
     mgr.create('test-sha');
 
@@ -154,8 +169,8 @@ describe('WorktreeManager', () => {
 
     // Make a commit in the worktree (simulating agent running git commit)
     fs.writeFileSync(path.join(worktreePath, 'committed.txt'), 'Agent committed this\n');
-    spawnSync('git', ['add', 'committed.txt'], { cwd: worktreePath, stdio: 'pipe' });
-    spawnSync('git', ['commit', '-m', 'Agent commit'], { cwd: worktreePath, stdio: 'pipe' });
+    runGit(worktreePath, ['add', 'committed.txt']);
+    runGit(worktreePath, ['commit', '-m', 'Agent commit']);
 
     const result = mgr.harvest('test-harvest-commit');
 
@@ -228,7 +243,7 @@ describe('WorktreeManager', () => {
     expect(fs.existsSync(oldPath)).toBe(true);
 
     // Remove via git but leave directory (simulating a crash)
-    spawnSync('git', ['worktree', 'remove', '--force', oldPath], { cwd: repo, stdio: 'pipe' });
+    runGit(repo, ['worktree', 'remove', '--force', oldPath]);
     // Recreate the directory to simulate orphaned state
     fs.mkdirSync(oldPath, { recursive: true });
     // Backdate mtime to simulate a stale worktree (> 1 hour old)

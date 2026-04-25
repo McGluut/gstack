@@ -48,7 +48,9 @@ import { resolveBash } from './helpers/bash';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BASH = resolveBash();
-const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 15000 : 5000;
+// These end-to-end binary tests are stable in isolation but need more headroom
+// under the sharded free-suite on Windows.
+const SLOW_CLI_TIMEOUT = process.platform === 'win32' ? 30000 : 10000;
 
 function runCli(scriptPath: string, args: string[], env: NodeJS.ProcessEnv): { status: number; stdout: string; stderr: string } {
   const result = spawnSync(BASH, [scriptPath, ...args], {

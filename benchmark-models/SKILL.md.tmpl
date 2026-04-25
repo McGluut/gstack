@@ -4,11 +4,12 @@ preamble-tier: 1
 version: 1.0.0
 description: |
   Cross-model benchmark for gstack skills. Runs the same prompt through Claude,
-  GPT (via Codex CLI), and Gemini side-by-side — compares latency, tokens, cost,
-  and optionally quality via LLM judge. Answers "which model is actually best
-  for this skill?" with data instead of vibes. Separate from /benchmark, which
-  measures web page performance. Use when: "benchmark models", "compare models",
-  "which model is best for X", "cross-model comparison", "model shootout". (gstack)
+  GPT (via Codex CLI), and Gemini side-by-side - compares latency, tokens, cost,
+  and optionally quality via LLM judge. Helps compare which model looks best
+  for this prompt or skill run using measured tradeoffs instead of vibes.
+  Separate from /benchmark, which measures web page performance. Use when:
+  "benchmark models", "compare models", "which model is best for X",
+  "cross-model comparison", "model shootout". (gstack)
 voice-triggers:
   - "compare models"
   - "model shootout"
@@ -26,16 +27,16 @@ allowed-tools:
 
 {{PREAMBLE}}
 
-# /benchmark-models — Cross-Model Skill Benchmark
+# /benchmark-models - Cross-Model Skill Benchmark
 
 You are running the `/benchmark-models` workflow. Wraps the `gstack-model-benchmark` binary with an interactive flow that picks a prompt, confirms providers, previews auth, and runs the benchmark.
 
-Different from `/benchmark` — that skill measures web page performance (Core Web Vitals, load times). This skill measures AI model performance on gstack skills or arbitrary prompts.
+Different from `/benchmark` - that skill measures web page performance (Core Web Vitals, load times). This skill measures AI model performance on gstack skills or arbitrary prompts.
 
 ## Quick Contract
 
 - Prerequisites: the `gstack-model-benchmark` binary, at least one authenticated provider from the dry run, and a prompt source (skill, inline prompt, or prompt file).
-- Outputs: one benchmark table in the conversation and an optional saved JSON result under `~/.gstack/benchmarks/`.
+- Outputs: one benchmark table in the conversation and an optional saved JSON result under `${GSTACK_HOME:-$HOME/.gstack}/benchmarks/`.
 - Stop when: no benchmark binary is available, no providers are authed, the prompt source cannot be resolved, or the user declines the benchmark after the dry run.
 - If unavailable: if judge auth or benchmark-result persistence is unavailable, continue with the provider comparison and note which optional capability was skipped.
 
@@ -44,7 +45,7 @@ Different from `/benchmark` — that skill measures web page performance (Core W
 ## Step 0: Locate the binary
 
 ```bash
-BIN="~/.claude/skills/gstack/bin/gstack-model-benchmark"
+BIN="${GSTACK_BIN:+$GSTACK_BIN/gstack-model-benchmark}"
 [ -x "$BIN" ] || BIN="$(command -v gstack-model-benchmark 2>/dev/null || true)"
 [ -x "$BIN" ] || { echo "ERROR: gstack-model-benchmark not found. Run ./setup in the gstack install dir." >&2; exit 1; }
 echo "BIN: $BIN"
@@ -62,8 +63,8 @@ Use AskUserQuestion with the preamble format:
 - **RECOMMENDATION:** A because benchmarking against a real skill exposes tool-use differences, not just raw generation.
 - **Options:**
   - A) Benchmark one of my gstack skills (we'll pick which skill next). Completeness: 10/10.
-  - B) Use an inline prompt — type it on the next turn. Completeness: 8/10.
-  - C) Point at a prompt file on disk — specify path on the next turn. Completeness: 8/10.
+  - B) Use an inline prompt - type it on the next turn. Completeness: 8/10.
+  - C) Point at a prompt file on disk - specify path on the next turn. Completeness: 8/10.
 
 If A: list top-level gstack skills that have SKILL.md files (from `find . -maxdepth 2 -name SKILL.md -not -path './.*'`), ask the user to pick one via a second AskUserQuestion. Use the picked SKILL.md path as the prompt file.
 
@@ -79,17 +80,17 @@ If C: ask for the path. Verify it exists. Use as positional argument.
 "$BIN" --prompt "unused, dry-run" --models claude,gpt,gemini --dry-run
 ```
 
-Show the dry-run output. The "Adapter availability" section tells the user which providers will actually run (OK) vs skip (NOT READY — remediation hint included).
+Show the dry-run output. The "Adapter availability" section tells the user which providers will actually run (OK) vs skip (NOT READY - remediation hint included).
 
-If ALL three show NOT READY: stop with a clear message — benchmark can't run without at least one authed provider. Suggest `claude login`, `codex login`, or `gemini login` / `export GOOGLE_API_KEY`.
+If ALL three show NOT READY: stop with a clear message - benchmark can't run without at least one authed provider. Suggest `claude login`, `codex login`, or `gemini login` / `export GOOGLE_API_KEY`.
 
 If at least one is OK: AskUserQuestion:
-- **Simplify:** "Which models should we include? The dry-run above showed which are authed. Unauthed ones will be skipped cleanly — they won't abort the batch."
+- **Simplify:** "Which models should we include? The dry-run above showed which are authed. Unauthed ones will be skipped cleanly - they won't abort the batch."
 - **RECOMMENDATION:** A (all authed providers) because running as many as possible gives the richest comparison.
 - **Options:**
   - A) All authed providers. Completeness: 10/10.
-  - B) Only Claude. Completeness: 6/10 (no cross-model signal — use /ship's review for solo claude benchmarks instead).
-  - C) Pick two — specify on next turn. Completeness: 8/10.
+  - B) Only Claude. Completeness: 6/10 (no cross-model signal - use /ship's review for solo Claude benchmarks instead).
+  - C) Pick two - specify on next turn. Completeness: 8/10.
 
 ---
 
@@ -106,11 +107,11 @@ fi
 ```
 
 If judge is available, AskUserQuestion:
-- **Simplify:** "The quality judge scores each model's output on a 0-10 scale using Anthropic's Claude as a tiebreaker. Adds ~$0.05/run. Recommended if you care about output quality, not just latency and cost."
-- **RECOMMENDATION:** A — the whole point is comparing quality, not just speed.
+- **Simplify:** "The quality judge scores each model's output on a 0-10 scale using Anthropic's Claude as one additional comparison signal. Adds ~$0.05/run. Recommended if you care about output quality, not just latency and cost."
+- **RECOMMENDATION:** A - the whole point is comparing quality, not just speed.
 - **Options:**
   - A) Enable judge (adds ~$0.05). Completeness: 10/10.
-  - B) Skip judge — speed/cost/tokens only. Completeness: 7/10.
+  - B) Skip judge - speed/cost/tokens only. Completeness: 7/10.
 
 If judge is NOT available, skip this question and omit the `--judge` flag.
 
@@ -126,17 +127,17 @@ Construct the command from Step 1, 2, 3 decisions:
 
 Where `<prompt-spec>` is either `--prompt "<text>"` (Step 1B), a file path (Step 1A or 1C), and `<picked-models>` is the comma-separated list from Step 2.
 
-Stream the output as it arrives. This is slow — each provider runs the prompt fully. Expect 30s-5min depending on prompt complexity and whether `--judge` is on.
+Stream the output as it arrives. This is slow - each provider runs the prompt fully. Expect 30s-5min depending on prompt complexity and whether `--judge` is on.
 
 ---
 
 ## Step 5: Interpret results
 
 After the table prints, summarize for the user:
-- **Fastest** — provider with lowest latency.
-- **Cheapest** — provider with lowest cost.
-- **Highest quality** (if `--judge` ran) — provider with highest score.
-- **Best overall** — use judgment. If judge ran: quality-weighted. Otherwise: note the tradeoff the user needs to make.
+- **Fastest** - provider with lowest latency.
+- **Cheapest** - provider with lowest cost.
+- **Highest judge-scored output** (if `--judge` ran) - provider with the highest judge score in this run.
+- **Best-fit tradeoff for this run** - use judgment. If judge ran: treat the judge score as one signal alongside cost, latency, and prompt fit. Name which tradeoff is winning for this run, and keep any close call or uncertainty explicit. Otherwise: state the tradeoff the user still needs to choose between.
 
 If any provider hit an error (auth/timeout/rate_limit), call it out with the remediation path.
 
@@ -146,9 +147,9 @@ If any provider hit an error (auth/timeout/rate_limit), call it out with the rem
 
 AskUserQuestion:
 - **Simplify:** "Save this benchmark as JSON so you can compare future runs against it?"
-- **RECOMMENDATION:** A — skill performance drifts as providers update their models; a saved baseline catches quality regressions.
+- **RECOMMENDATION:** A - skill performance drifts as providers update their models; a saved baseline catches quality regressions.
 - **Options:**
-  - A) Save to `~/.gstack/benchmarks/<date>-<skill-or-prompt-slug>.json`. Completeness: 10/10.
+  - A) Save to `${GSTACK_HOME:-$HOME/.gstack}/benchmarks/<date>-<skill-or-prompt-slug>.json`. Completeness: 10/10.
   - B) Just print, don't save. Completeness: 5/10 (loses trend data).
 
 If A: re-run with `--output json` and tee to the dated file. Print the path so the user can diff future runs against it.
@@ -158,7 +159,7 @@ If A: re-run with `--output json` and tee to the dated file. Print the path so t
 ## Important Rules
 
 - **Never run a real benchmark without Step 2's dry-run first.** Users need to see auth status before spending API calls.
-- **Never hardcode model names.** Always pass providers from user's Step 2 choice — the binary handles the rest.
+- **Never hardcode model names.** Always pass providers from user's Step 2 choice - the binary handles the rest.
 - **Never auto-include `--judge`.** It adds real cost; user must opt in.
-- **If zero providers are authed, STOP.** Don't attempt the benchmark — it produces no useful output.
+- **If zero providers are authed, STOP.** Don't attempt the benchmark - it produces no useful output.
 - **Cost is visible.** Every run shows per-provider cost in the table. Users should see it before the next run.

@@ -55,7 +55,7 @@ You are running the `/review` workflow. Analyze the current branch's diff agains
 
 ## Step 2: Read the checklist
 
-Read `.claude/skills/review/checklist.md`.
+Read `${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/checklist.md`.
 
 **If the file cannot be read, STOP and report the error.** Do not proceed without the checklist.
 
@@ -63,7 +63,7 @@ Read `.claude/skills/review/checklist.md`.
 
 ## Step 2.5: Check for Greptile review comments
 
-Read `.claude/skills/review/greptile-triage.md` and follow the fetch, filter, classify, and **escalation detection** steps.
+Read `${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/greptile-triage.md` and follow the fetch, filter, classify, and **escalation detection** steps.
 
 **If no PR exists, `gh` fails, API returns an error, or there are zero Greptile comments:** Skip this step silently. Greptile integration is additive — the review works without it.
 
@@ -254,7 +254,7 @@ recognize that Eng Review was run on this branch.
 Run:
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"review","timestamp":"TIMESTAMP","status":"STATUS","issues_found":N,"critical":N,"informational":N,"quality_score":SCORE,"specialists":SPECIALISTS_JSON,"findings":FINDINGS_JSON,"commit":"COMMIT"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"review","timestamp":"TIMESTAMP","status":"STATUS","issues_found":N,"critical":N,"informational":N,"quality_score":SCORE,"specialists":SPECIALISTS_JSON,"findings":FINDINGS_JSON,"commit":"COMMIT"}'
 ```
 
 Substitute:

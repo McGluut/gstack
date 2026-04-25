@@ -4,8 +4,9 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Restore working context saved earlier by /context-save. Loads the most recent
-  saved state (across all branches by default) so you can pick up where you
-  left off — even across Conductor workspace handoffs.
+  saved state (across branches by default unless the user clearly anchors the
+  current branch) so you can pick up where you left off — even across Conductor
+  workspace handoffs.
   Use when asked to "resume", "restore context", "where was I", or
   "pick up where I left off". Pair with /context-save.
   Formerly /checkpoint resume — renamed because Claude Code treats /checkpoint
@@ -811,23 +812,25 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 # /context-restore — Restore Saved Working Context
 
 You are a **Staff Engineer reading a colleague's meticulous session notes** to
-pick up exactly where they left off. Your job is to load the most recent saved
-context and present it clearly so the user can resume work without losing a beat.
+recover useful continuity. Your job is to load the most recent saved context,
+present it clearly, and keep the user from mistaking old notes for current repo truth.
 
 **HARD GATE:** Do NOT implement code changes. This skill only reads saved
 context files and presents the summary.
 
-**Default: load the most recent saved context across ALL branches.** This is
-intentionally different from `/context-save list`, which defaults to the current
-branch. `/context-restore` is for Conductor workspace handoff — a context saved
-on one branch can be resumed from another.
+**Default: load the most recent saved context across ALL branches for generic
+"resume" requests.** This is intentionally different from `/context-save list`,
+which defaults to the current branch. `/context-restore` is for Conductor
+workspace handoff — a context saved on one branch can be resumed from another.
 
-**Do NOT filter the candidate set by current branch.** The `list` flow does
-that; `/context-restore` does not.
+**Do NOT filter the candidate set by current branch unless the user clearly
+anchors the current branch or asks for branch-local restore.** The `list` flow
+is branch-local by default; `/context-restore` stays cross-branch only when the
+user's request is still generic.
 
 ## Quick Contract
 
-- Prerequisites: a repo or project slug that `eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG` can resolve and read access to the saved-context directory in the gstack state root.
+- Prerequisites: a repo or project slug that `eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"` can resolve and read access to the saved-context directory in the gstack state root.
 - Outputs: the newest matching saved context plus a clear resume summary and next-step options.
 - Stop when: the right saved context is loaded, or no saved contexts exist for this project.
 - If unavailable: if the slug or state root cannot be resolved, stop and name that prerequisite instead of implying a restore happened.
@@ -850,7 +853,7 @@ Parse the user's input:
 ### Step 1: Find saved contexts
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
 GSTACK_STATE_ROOT="${GSTACK_HOME:-${CLAUDE_PLUGIN_DATA:-${HOME:+$HOME/.gstack}}}"
 [ -n "$GSTACK_STATE_ROOT" ] || GSTACK_STATE_ROOT=".gstack"
 CHECKPOINT_DIR="$GSTACK_STATE_ROOT/projects/$SLUG/checkpoints"
@@ -914,11 +917,12 @@ If the current branch differs from the saved context's branch, note this:
 
 After presenting, ask via AskUserQuestion:
 
-- A) Continue working on the remaining items
+- A) Continue from this context after re-checking current branch and working tree
 - B) Show the full saved file
 - C) Just needed the context, thanks
 
-If A, summarize the first remaining work item and suggest starting there.
+If A, first summarize the most important remaining item and any branch mismatch or stale-state
+risk, then suggest starting there.
 
 ---
 
@@ -934,9 +938,13 @@ state, then `/context-restore` will find it."
 ## Important Rules
 
 - **Never modify code.** This skill only reads saved files and presents them.
-- **Always search across all branches by default.** Cross-branch resume is the
-  whole point. Only filter by branch if the user explicitly asks via a
-  title-fragment match that happens to be branch-specific.
+- **Default to cross-branch search for generic resume requests.** Cross-branch
+  resume is the point, but if the user clearly anchors the current branch,
+  current task, or a branch-local title, narrow the candidate set instead of
+  pretending every restore should stay global.
+- **Saved context is a resume aid, not authority.** Before acting on old notes,
+  compare them against the current branch, worktree, and file state. If they disagree,
+  present the conflict instead of silently trusting the saved context.
 - **"Most recent" means the filename `YYYYMMDD-HHMMSS` prefix**, not
   `ls -1t` (filesystem mtime). Filenames are stable across file-system
   operations; mtime is not.

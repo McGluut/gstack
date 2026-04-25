@@ -813,7 +813,9 @@ You are helping the user configure their deployment so `/land-and-deploy` works
 automatically. Your job is to detect the deploy platform, production URL, health
 checks, and deploy status commands — then persist everything to CLAUDE.md.
 
-After this runs once, `/land-and-deploy` reads CLAUDE.md and skips detection entirely.
+After this runs once, `/land-and-deploy` should treat CLAUDE.md as the primary deploy
+record. If later repo evidence or platform checks disagree with that record, surface
+the mismatch instead of silently trusting stale configuration.
 
 ## User-invocable
 When the user types `/setup-deploy`, run this skill.
@@ -997,7 +999,9 @@ Health check:  {health check}
 Status cmd:    {status command}
 Merge method:  {merge method}
 
-Saved to CLAUDE.md. /land-and-deploy will use these settings automatically.
+Saved to CLAUDE.md. /land-and-deploy will use these settings as its primary
+configuration and should only bypass re-detection while the stored record still
+matches current repo and platform evidence.
 
 Next steps:
 - Run /land-and-deploy to merge and deploy your current PR
@@ -1009,6 +1013,6 @@ Next steps:
 
 - **Never expose secrets.** Don't print full API keys, tokens, or passwords.
 - **Confirm with the user.** Always show the detected config and ask for confirmation before writing.
-- **CLAUDE.md is the source of truth.** All configuration lives there — not in a separate config file.
+- **CLAUDE.md is the primary deploy record.** Persist the configuration there, but do not treat it as unquestionable if current repo evidence, platform files, or live checks disagree.
 - **Idempotent.** Running /setup-deploy multiple times overwrites the previous config cleanly.
 - **Platform CLIs are optional.** If `fly` or `vercel` CLI isn't installed, fall back to URL-based health checks.

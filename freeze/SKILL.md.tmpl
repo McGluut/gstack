@@ -38,7 +38,7 @@ a file outside the allowed path will be **blocked** (not just warned).
 ## Quick Contract
 
 - Prerequisites: AskUserQuestion access for the boundary path, a resolvable target directory, and a working `check-freeze.sh` hook.
-- Outputs: a persisted session-local edit boundary that blocks Edit and Write outside the chosen path.
+- Outputs: a persisted edit boundary in the current state root that blocks Edit and Write outside the chosen path.
 - Stop when: a valid absolute directory is saved as the freeze boundary, or the supplied path cannot be resolved.
 - If unavailable: if the path cannot be resolved or the hook cannot read the state file, stop and name the missing prerequisite instead of claiming edits are frozen.
 
@@ -75,8 +75,8 @@ echo "Freeze boundary set: $FREEZE_DIR"
 ```
 
 Tell the user: "Edits are now restricted to `<path>/`. Any Edit or Write
-outside this directory will be blocked. To change the boundary, run `/freeze`
-again. To remove it, run `/unfreeze` or end the session."
+outside this directory will be denied by the freeze hook. To change the
+boundary, run `/freeze` again. To remove it, run `/unfreeze`."
 
 ## How it works
 
@@ -84,12 +84,13 @@ The hook reads `file_path` from the Edit/Write tool input JSON, then checks
 whether the path starts with the freeze directory. If not, it returns
 `permissionDecision: "deny"` to block the operation.
 
-The freeze boundary persists for the session via the state file. The hook
-script reads it on every Edit/Write invocation.
+The freeze boundary persists through the state file until it is replaced,
+cleared, or the state root changes. The hook script reads it on every
+Edit/Write invocation.
 
 ## Notes
 
 - The trailing `/` on the freeze directory prevents `/src` from matching `/src-old`
 - Freeze applies to Edit and Write tools only — Read, Bash, Glob, Grep are unaffected
 - This prevents accidental edits, not a security boundary — Bash commands like `sed` can still modify files outside the boundary
-- To deactivate, run `/unfreeze` or end the conversation
+- To deactivate, run `/unfreeze`; do not assume ending the conversation clears the state file automatically

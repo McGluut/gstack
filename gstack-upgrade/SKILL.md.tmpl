@@ -2,7 +2,7 @@
 name: gstack-upgrade
 version: 1.1.0
 description: |
-  Upgrade gstack to the latest version. Detects global vs vendored install,
+  Upgrade gstack to the latest available version from the configured remote. Detects global vs vendored install,
   runs the upgrade, and shows what's new. Use when asked to "upgrade gstack",
   "update gstack", or "get latest version".
 voice-triggers:
@@ -23,7 +23,7 @@ allowed-tools:
 
 # /gstack-upgrade
 
-Upgrade gstack to the latest version and show what's new.
+Upgrade gstack to the latest available version from the configured remote and show what's new.
 
 ## Quick Contract
 
@@ -219,7 +219,7 @@ echo "LOCAL_GSTACK=$LOCAL_GSTACK"
 echo "TEAM_MODE=$_TEAM_MODE"
 ```
 
-**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is `true`:** Remove the vendored copy. Team mode uses the global install as the single source of truth.
+**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is `true`:** Remove the vendored copy. Team mode uses the global install as the primary shared distribution surface, so a second checked-in copy mainly creates drift.
 
 ```bash
 cd "$_ROOT"
@@ -229,7 +229,7 @@ if ! grep -qF '.claude/skills/gstack/' .gitignore 2>/dev/null; then
 fi
 rm -rf "$LOCAL_GSTACK"
 ```
-Tell user: "Removed vendored copy at `$LOCAL_GSTACK` (team mode active — global install is the source of truth). Commit the `.gitignore` change when ready."
+Tell user: "Removed vendored copy at `$LOCAL_GSTACK` (team mode active; the global install is the primary shared distribution surface, so the vendored copy would only drift). Commit the `.gitignore` change when ready."
 
 **If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is NOT `true`:** Update it by copying from the freshly-upgraded primary install (same approach as README vendored install):
 ```bash
@@ -285,7 +285,7 @@ rm -f "$GSTACK_STATE_ROOT/update-snoozed"
 
 ### Step 6: Show What's New
 
-Read `$INSTALL_DIR/CHANGELOG.md`. Find all version entries between the old version and the new version. Summarize as 5-7 bullets grouped by theme. Don't overwhelm — focus on user-facing changes. Skip internal refactors unless they're significant.
+Read `$INSTALL_DIR/CHANGELOG.md`. Treat it as the primary release record, not as proof that no other relevant delta exists. Find all version entries between the old version and the new version. Summarize as 5-7 bullets grouped by theme. Don't overwhelm — focus on user-facing changes. Skip internal refactors unless they're significant, and name any uncertainty if the changelog or upgrade result looks incomplete.
 
 Format:
 ```

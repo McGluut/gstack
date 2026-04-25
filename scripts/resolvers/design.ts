@@ -44,7 +44,7 @@ source <(${ctx.paths.binDir}/gstack-diff-scope <base> 2>/dev/null)
 
 1. **Check for DESIGN.md.** If \`DESIGN.md\` or \`design-system.md\` exists in the repo root, read it. All design findings are calibrated against it — patterns blessed in DESIGN.md are not flagged. If not found, use universal design principles.
 
-2. **Read \`.claude/skills/review/design-checklist.md\`.** If the file cannot be read, skip design review with a note: "Design checklist not found — skipping design review."
+2. **Read \`${ctx.paths.skillRoot}/review/design-checklist.md\`.** If the file cannot be read, skip design review with a note: "Design checklist not found — skipping design review."
 
 3. **Read each changed frontend file** (full file, not just diff hunks). Frontend files are identified by the patterns listed in the checklist.
 
@@ -813,7 +813,7 @@ existing HTML wireframe approach (\`DESIGN_SKETCH\`). Design mockups are a
 progressive enhancement, not a hard requirement.
 
 If \`BROWSE_NOT_AVAILABLE\`: surface the board URL or file path explicitly. If
-\`~/.claude/skills/gstack/bin/gstack-open-url\` is available, use it to open the
+\`${ctx.paths.binDir}/gstack-open-url\` is available, use it to open the
 comparison board. Otherwise, print the URL/path and tell the user to open it manually.
 
 If \`DESIGN_READY\`: the design binary is available for visual mockup generation.
@@ -826,7 +826,7 @@ Commands:
 - \`$D iterate --session /path/session.json --feedback "..." --output /path.png\` — iterate
 
 **CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to \`~/.gstack/projects/$SLUG/designs/\`, NEVER to \`.context/\`,
+MUST be saved to \`${'${GSTACK_HOME:-$HOME/.gstack}'}/projects/$SLUG/designs/\`, NEVER to \`.context/\`,
 \`docs/designs/\`, \`/tmp/\`, or any project-local directory. Design artifacts are USER
 data, not project files. They persist across branches, conversations, and workspaces.`;
 }
@@ -852,8 +852,8 @@ Generating visual mockups of the proposed design... (say "skip" if you don't nee
 **Step 1: Set up the design directory**
 
 \`\`\`bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-_DESIGN_DIR="$HOME/.gstack/projects/$SLUG/designs/mockup-$(date +%Y%m%d)"
+eval "$(${ctx.paths.binDir}/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+_DESIGN_DIR="${'${GSTACK_HOME:-$HOME/.gstack}'}/projects/$SLUG/designs/mockup-$(date +%Y%m%d)"
 mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 \`\`\`
@@ -1016,7 +1016,7 @@ export function generateTasteProfile(ctx: TemplateContext): string {
   return `Read the persistent taste profile if it exists:
 
 \`\`\`bash
-_TASTE_PROFILE=~/.gstack/projects/$SLUG/taste-profile.json
+_TASTE_PROFILE="${'${GSTACK_HOME:-$HOME/.gstack}'}/projects/$SLUG/taste-profile.json"
 if [ -f "$_TASTE_PROFILE" ]; then
   # Schema v1: { dimensions: { fonts, colors, layouts, aesthetics }, sessions: [] }
   # Each dimension has approved[] and rejected[] entries with

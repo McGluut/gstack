@@ -857,7 +857,7 @@ These are not additional checklist items. They are the instincts that experience
 
 1. **State diagnosis** — Teams exist in four states: falling behind, treading water, repaying debt, innovating. Each demands a different intervention (Larson, An Elegant Puzzle).
 2. **Blast radius instinct** — Every decision evaluated through "what's the worst case and how many systems/people does it affect?"
-3. **Boring by default** — "Every company gets about three innovation tokens." Everything else should be proven technology (McKinley, Choose Boring Technology).
+3. **Boring by default** — "Every company gets about three innovation tokens." Treat that as a pressure heuristic, not a veto. Default to proven technology unless the unfamiliar choice solves a concrete problem better and the added risk is named explicitly (McKinley, Choose Boring Technology).
 4. **Incremental over revolutionary** — Strangler fig, not big bang. Canary, not global rollout. Refactor, not rewrite (Fowler).
 5. **Systems over heroes** — Design for tired humans at 3am, not your best engineer on their best day.
 6. **Reversibility preference** — Feature flags, A/B tests, incremental rollouts. Make the cost of being wrong low.
@@ -883,13 +883,14 @@ When evaluating architecture, think "boring by default." When reviewing tests, t
 ### Design Doc Check
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-SLUG=$(~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-' || echo 'no-branch')
-DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
-[ -z "$DESIGN" ] && DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null | head -1)
+PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+DESIGN=$(ls -t "$PROJECT_STORE"/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+[ -z "$DESIGN" ] && DESIGN=$(ls -t "$PROJECT_STORE"/*-design-*.md 2>/dev/null | head -1)
 [ -n "$DESIGN" ] && echo "Design doc found: $DESIGN" || echo "No design doc found"
 ```
-If a design doc exists, read it. Use it as the source of truth for the problem statement, constraints, and chosen approach. If it has a `Supersedes:` field, note that this is a revised design — check the prior version for context on what changed and why.
+If a design doc exists, read it. Use it as the primary planning input for the problem statement, constraints, and chosen approach, then cross-check it against the current repo and the user's actual ask. If it has a `Supersedes:` field, note that this is a revised design — check the prior version for context on what changed and why.
 
 ## Prerequisite Skill Offer
 
@@ -1397,11 +1398,12 @@ SOURCE = "codex" if Codex ran, "claude" if subagent ran.
 
 ### Outside Voice Integration Rule
 
-Outside voice findings are INFORMATIONAL until the user explicitly approves each one.
+Outside voice findings are advisory evidence, not plan authority.
 Do NOT incorporate outside voice recommendations into the plan without presenting each
 finding via AskUserQuestion and getting explicit approval. This applies even when you
 agree with the outside voice. Cross-model consensus is a strong signal — present it as
-such — but the user makes the decision.
+such — but keep its confidence separate from authority. The user still makes the
+decision.
 
 ## CRITICAL RULE — How to ask questions
 Follow the AskUserQuestion format from the Preamble above. Additional rules for plan reviews:
@@ -1422,7 +1424,7 @@ Every plan review MUST produce a "NOT in scope" section listing work that was co
 List existing code/flows that already partially solve sub-problems in this plan, and whether the plan reuses them or unnecessarily rebuilds them.
 
 ### TODOS.md updates
-After all review sections are complete, present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question. Never silently skip this step. Follow the format in `.claude/skills/review/TODOS-format.md`.
+After all review sections are complete, present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question. Never silently skip this step. Follow the format in `${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/TODOS-format.md`.
 
 For each TODO, describe:
 * **What:** One-line description of the work.
@@ -1503,13 +1505,13 @@ Check the git log for this branch. If there are prior commits suggesting a previ
 After producing the Completion Summary above, persist the review result.
 
 **PLAN MODE EXCEPTION — ALWAYS RUN:** This command writes review metadata to
-`~/.gstack/` (user config directory, not project files). The skill preamble
-already writes to `~/.gstack/sessions/` and `~/.gstack/analytics/` — this is
+`${GSTACK_HOME:-$HOME/.gstack}/` (user config directory, not project files). The skill preamble
+already writes to `${GSTACK_HOME:-$HOME/.gstack}/sessions/` and `${GSTACK_HOME:-$HOME/.gstack}/analytics/` — this is
 the same pattern. The review dashboard depends on this data. Skipping this
 command breaks the review readiness dashboard in /ship.
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-eng-review","timestamp":"TIMESTAMP","status":"STATUS","unresolved":N,"critical_gaps":N,"issues_found":N,"mode":"MODE","commit":"COMMIT"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"plan-eng-review","timestamp":"TIMESTAMP","status":"STATUS","unresolved":N,"critical_gaps":N,"issues_found":N,"mode":"MODE","commit":"COMMIT"}'
 ```
 
 Substitute values from the Completion Summary:

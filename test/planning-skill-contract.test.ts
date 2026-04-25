@@ -36,11 +36,13 @@ describe('planning family quick contract', () => {
 });
 
 describe('planning family portability contracts', () => {
-  test('office-hours uses a branch-safe stem for design lineage artifacts and the opener helper for URLs', () => {
+  test('office-hours uses a branch-safe stem, portable state-root docs, and a helper-or-print opener contract', () => {
     const template = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md.tmpl'), 'utf-8');
     expect(template).toContain('branch-safe stem from `gstack-slug`');
     expect(template).toContain('_BRANCH_STEM="${BRANCH:?gstack-slug did not provide BRANCH}"');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-open-url');
+    expect(template).toContain('${GSTACK_HOME:-$HOME/.gstack}/projects/');
+    expect(template).toContain('$GSTACK_BIN/gstack-open-url');
+    expect(template).toContain('otherwise print the URL plainly');
   });
 
   test('plan-design-review points board fallback through the cross-platform opener helper', () => {
@@ -63,5 +65,8 @@ describe('planning family portability contracts', () => {
     const template = fs.readFileSync(path.join(ROOT, 'pair-agent', 'SKILL.md.tmpl'), 'utf-8');
     expect(template).toContain('Do not promise a remote instruction block until ngrok status is known.');
     expect(template).toContain('stop after naming the exact prerequisite gap');
+    expect(template).toContain('${OPENCLAW_HOME:-$HOME/.openclaw}/skills/gstack/browse-remote.json');
+    expect(template).toContain('${CODEX_HOME:-$HOME/.codex}/skills/gstack/browse-remote.json');
+    expect(template).toContain('${CURSOR_HOME:-$HOME/.cursor}/skills/gstack/browse-remote.json');
   });
 });

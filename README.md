@@ -1,6 +1,8 @@
 # gstack
 
-Portable fork of [garrytan/gstack](https://github.com/garrytan/gstack) for off-the-shelf use across hosts, shells, and agent runtimes. Original workflow and methodology credit belongs to Garry Tan's gstack; this fork claims the portability and distribution hardening.
+Portable fork of [garrytan/gstack](https://github.com/garrytan/gstack) for off-the-shelf use across hosts, shells, and agent runtimes.
+
+Original workflow and methodology credit belongs to Garry Tan's gstack. This fork keeps that core workflow and focuses on one narrower delivery goal: make the stack easier for someone else to install, verify, inspect, and run without inheriting private maintainer context.
 
 ## Fork Note
 
@@ -8,7 +10,7 @@ This repo is a fork, not a rewrite.
 
 - The workflow model, methodology, and original product vision come from Garry Tan's `gstack`.
 - The fork's claim is narrower: it makes that workflow easier to install, reason about, verify, and run across more hosts without private maintainer context.
-- Some of the README below preserves upstream first-person framing because it explains the original motivation for `gstack`. Read the sections labeled `Why This Fork Exists`, `What Changed In This Fork`, and `How To Give Input` for the fork-specific contract.
+- The README keeps upstream first-person framing where it explains the original motivation for `gstack`. Read `Why This Fork Exists`, `What Changed In This Fork`, and `How To Give Input` for the fork-specific contract.
 
 > "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
 
@@ -45,7 +47,7 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 
 This fork keeps gstack's workflow model, but hardens it for off-the-shelf use across hosts, shells, and install layouts.
 
-It is better than upstream if you want:
+Use this fork when you want:
 - fewer hidden maintainer-home and local-environment assumptions
 - explicit prerequisites, stop conditions, and output contracts on the skills themselves
 - honest degradation when a browser, model, helper binary, or state directory is unavailable
@@ -416,8 +418,9 @@ rm -rf ~/.factory/skills/gstack* 2>/dev/null
 rm -rf ~/.kiro/skills/gstack* 2>/dev/null
 rm -rf ~/.openclaw/skills/gstack* 2>/dev/null
 
-# 6. Remove temp files
-rm -f /tmp/gstack-* 2>/dev/null
+# 6. Remove temp files from the current shell temp root
+TMP_ROOT="${TMPDIR:-${TMP:-/tmp}}"
+find "$TMP_ROOT" -maxdepth 1 -name 'gstack-*' -type f -delete 2>/dev/null
 
 # 7. Per-project cleanup (run from each project root)
 rm -rf .gstack .gstack-worktrees .claude/skills/gstack 2>/dev/null

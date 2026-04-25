@@ -24,7 +24,7 @@ describe('security and debugging skill contracts', () => {
 describe('security and debugging off-the-shelf hardening', () => {
   test('investigate uses install-root learnings helper and explicit stop boundary', () => {
     const template = readTemplate('investigate');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-learnings-log');
+    expect(template).toContain('"$GSTACK_BIN/gstack-learnings-log"');
     expect(template).toContain('three hypotheses fail');
   });
 

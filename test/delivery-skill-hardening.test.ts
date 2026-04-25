@@ -32,20 +32,25 @@ describe('delivery skill off-the-shelf hardening', () => {
   test('review and ship use host-rewritable review surfaces', () => {
     const review = readTemplate('review');
     const ship = readTemplate('ship');
-    expect(review).toContain('.claude/skills/review/checklist.md');
-    expect(review).toContain('.claude/skills/review/greptile-triage.md');
-    expect(review).toContain('~/.claude/skills/gstack/bin/gstack-review-log');
-    expect(ship).toContain('.claude/skills/review/checklist.md');
-    expect(ship).toContain('.claude/skills/review/greptile-triage.md');
-    expect(ship).toContain('.claude/skills/review/TODOS-format.md');
-    expect(ship).toContain('${HOME}/.claude/skills/gstack/document-release/SKILL.md');
+    expect(review).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/checklist.md');
+    expect(review).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/greptile-triage.md');
+    expect(review).toContain('"$GSTACK_BIN/gstack-review-log"');
+    expect(ship).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/checklist.md');
+    expect(ship).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/greptile-triage.md');
+    expect(ship).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/TODOS-format.md');
+    expect(ship).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/document-release/SKILL.md');
+    expect(ship).toContain('"$GSTACK_BIN/gstack-review-log"');
+    expect(ship).toContain('"$GSTACK_BIN/gstack-diff-scope"');
+    expect(ship).toContain('${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/$BRANCH-reviews.jsonl');
   });
 
   test('land-and-deploy uses install-root review and diff helpers', () => {
     const template = readTemplate('land-and-deploy');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-review-read');
-    expect(template).toContain('.claude/skills/review/checklist.md');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-diff-scope');
+    expect(template).toContain('"$GSTACK_BIN/gstack-review-read"');
+    expect(template).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/checklist.md');
+    expect(template).toContain('"$GSTACK_BIN/gstack-diff-scope"');
+    expect(template).toContain('PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"');
+    expect(template).toContain('"${GSTACK_HOME:-$HOME/.gstack}/evals"/*-e2e-*');
   });
 
   test('qa templates make project-scoped persistence optional and explicit', () => {
@@ -53,6 +58,10 @@ describe('delivery skill off-the-shelf hardening', () => {
     const qaOnly = readTemplate('qa-only');
     expect(qa).toContain('project-scoped artifact was skipped');
     expect(qaOnly).toContain('project-scoped artifact was skipped');
+    expect(qa).toContain('${GSTACK_HOME:-$HOME/.gstack}/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md');
+    expect(qaOnly).toContain('${GSTACK_HOME:-$HOME/.gstack}/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md');
+    expect(qa).toContain('Output to any writable path');
+    expect(qaOnly).toContain('Output to any writable path');
   });
 
   test('gstack-upgrade guards dirty installs and uses remote default branch detection', () => {

@@ -27,40 +27,43 @@ describe('ops skill off-the-shelf hardening', () => {
     expect(template).toContain('PR_BODY_FILE=');
     expect(template).toContain('gh pr edit --body-file "$PR_BODY_FILE"');
     expect(template).not.toContain('/tmp/gstack-pr-body-$$.md');
+    expect(template).toContain('${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/TODOS-format.md');
   });
 
-  test('retro uses install-root discovery helpers and portable temp output', () => {
+  test('retro uses install-root discovery helpers and portable state/temp roots', () => {
     const template = readTemplate('retro');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-slug');
-    expect(template).toContain('~/.claude/skills/gstack/bin/gstack-global-discover');
+    expect(template).toContain('"$GSTACK_BIN/gstack-slug"');
+    expect(template).toContain('"$GSTACK_BIN/gstack-global-discover.exe"');
+    expect(template).toContain('${GSTACK_HOME:-$HOME/.gstack}/retros/');
     expect(template).toContain('TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"');
   });
 
   test('canary and benchmark use install-root slug helper and explicit persistence fallback', () => {
     const canary = readTemplate('canary');
     const benchmark = readTemplate('benchmark');
-    expect(canary).toContain('~/.claude/skills/gstack/bin/gstack-slug');
+    expect(canary).toContain('"$GSTACK_BIN/gstack-slug"');
     expect(canary).toContain('PROJECT_LOG_DIR=');
     expect(canary).toContain('dashboard log was skipped');
-    expect(benchmark).toContain('~/.claude/skills/gstack/bin/gstack-slug');
+    expect(benchmark).toContain('"$GSTACK_BIN/gstack-slug"');
     expect(benchmark).toContain('regression/trend comparisons were skipped');
   });
 
   test('benchmark-models uses install-root binary discovery and host-neutral judge check', () => {
     const template = readTemplate('benchmark-models');
-    expect(template).toContain('BIN="~/.claude/skills/gstack/bin/gstack-model-benchmark"');
+    expect(template).toContain('BIN="${GSTACK_BIN:+$GSTACK_BIN/gstack-model-benchmark}"');
+    expect(template).toContain('${GSTACK_HOME:-$HOME/.gstack}/benchmarks/');
     expect(template).toContain('command -v gstack-model-benchmark');
     expect(template).toContain('command -v claude');
     expect(template).not.toContain('$HOME/.claude/.credentials.json');
   });
 
-  test('setup-deploy and devex-review surface project-instructions and install-root review helpers', () => {
+  test('setup-deploy and devex-review surface project-instructions and host-neutral review references', () => {
     const setupDeploy = readTemplate('setup-deploy');
     const devexReview = readTemplate('devex-review');
     expect(setupDeploy).toContain('project-instructions file (`CLAUDE.md` in this repo)');
-    expect(devexReview).toContain('~/.claude/skills/gstack/bin/gstack-slug');
-    expect(devexReview).toContain('~/.claude/skills/gstack/bin/gstack-review-read');
-    expect(devexReview).toContain('~/.claude/skills/gstack/bin/gstack-review-log');
-    expect(devexReview).toContain('.claude/skills/gstack/plan-devex-review/dx-hall-of-fame.md');
+    expect(devexReview).toContain('"$GSTACK_BIN/gstack-slug"');
+    expect(devexReview).toContain('"$GSTACK_BIN/gstack-review-read"');
+    expect(devexReview).toContain('"$GSTACK_BIN/gstack-review-log"');
+    expect(devexReview).toContain('`dx-hall-of-fame.md` in the `/plan-devex-review` skill directory');
   });
 });

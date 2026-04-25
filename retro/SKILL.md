@@ -862,7 +862,7 @@ When the user types `/retro`, run this skill.
 
 ## Quick Contract
 
-- Prerequisites: git history for repo-scoped mode; optional global-discovery helper for `/retro global`; writable `.context/retros/` or `~/.gstack/retros/` only if snapshot persistence is possible.
+- Prerequisites: git history for repo-scoped mode; optional global-discovery helper for `/retro global`; writable `.context/retros/` or `${GSTACK_HOME:-$HOME/.gstack}/retros/` only if snapshot persistence is possible.
 - Outputs: one retrospective in the conversation plus a JSON snapshot when the target persistence path is available.
 - Stop when: the requested window is invalid, there are zero commits or sessions in the chosen window, or the required discovery helper for global mode is unavailable.
 - If unavailable: if snapshot persistence or global discovery is unavailable, continue with the repo-scoped narrative and state exactly which persistence or discovery step was skipped.
@@ -933,10 +933,11 @@ smarter on their codebase over time.
 Check for non-git context that should be included in the retro:
 
 ```bash
-[ -f ~/.gstack/retro-context.md ] && echo "RETRO_CONTEXT_FOUND" || echo "NO_RETRO_CONTEXT"
+RETRO_CONTEXT_PATH="${GSTACK_HOME:-$HOME/.gstack}/retro-context.md"
+[ -f "$RETRO_CONTEXT_PATH" ] && echo "RETRO_CONTEXT_FOUND" || echo "NO_RETRO_CONTEXT"
 ```
 
-If `RETRO_CONTEXT_FOUND`: read `~/.gstack/retro-context.md`. This file is user-authored and may contain meeting notes, calendar events, decisions, and other context that doesn't appear in git history. Incorporate this context into the retro narrative where relevant.
+If `RETRO_CONTEXT_FOUND`: read `${GSTACK_HOME:-$HOME/.gstack}/retro-context.md`. This file is user-authored and may contain meeting notes, calendar events, decisions, and other context that doesn't appear in git history. Incorporate this context into the retro narrative where relevant.
 
 ### Step 1: Gather Raw Data
 
@@ -977,7 +978,7 @@ git log origin/<default> --since="<window>" --format="AUTHOR:%aN" --name-only
 git shortlog origin/<default> --since="<window>" -sn --no-merges
 
 # 8. Greptile triage history (if available)
-cat ~/.gstack/greptile-history.md 2>/dev/null || true
+cat "${GSTACK_HOME:-$HOME/.gstack}/greptile-history.md" 2>/dev/null || true
 
 # 9. TODOS.md backlog (if available)
 cat TODOS.md 2>/dev/null || true
@@ -989,7 +990,7 @@ find . -name '*.test.*' -o -name '*.spec.*' -o -name '*_test.*' -o -name '*_spec
 git log origin/<default> --since="<window>" --oneline --grep="test(qa):" --grep="test(design):" --grep="test: coverage"
 
 # 12. gstack skill usage telemetry (if available)
-cat ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+cat "${GSTACK_HOME:-$HOME/.gstack}/analytics/skill-usage.jsonl" 2>/dev/null || true
 
 # 12. Test files changed in window
 git log origin/<default> --since="<window>" --format="" --name-only | grep -E '\.(test|spec)\.' | sort -u | wc -l
@@ -1020,9 +1021,11 @@ Calculate and present these metrics in a summary table:
 | Test Health | N total tests · M added this period · K regression tests |
 
 **Metric order rationale (V1):** features shipped leads — what users got. Commits
-and weighted commits reflect intent-to-ship. Logical SLOC added reflects real
-new functionality. Raw LOC is demoted to context because AI inflates it; ten
-lines of a good fix is not less shipping than ten thousand lines of scaffold.
+and weighted commits are rough proxies for shipping effort, not proof of impact.
+Logical SLOC added is the best available code-volume signal here, not proof of
+user value or finished functionality. Raw LOC is demoted to context because AI
+inflates it; ten lines of a good fix is not less shipping than ten thousand
+lines of scaffold.
 See docs/designs/PLAN_TUNING_V1.md §Workstream C.
 
 Then show a **per-author leaderboard** immediately below:
@@ -1036,7 +1039,7 @@ bob                       3   +120/-40     tests/
 
 Sort by commits descending. The current user (from `git config user.name`) always appears first, labeled "You (name)".
 
-**Greptile signal (if history exists):** Read `~/.gstack/greptile-history.md` (fetched in Step 1, command 8). Filter entries within the retro time window by date. Count entries by type: `fix`, `fp`, `already-fixed`. Compute signal ratio: `(fix + already-fixed) / (fix + already-fixed + fp)`. If no entries exist in the window or the file doesn't exist, skip the Greptile metric row. Skip unparseable lines silently.
+**Greptile signal (if history exists):** Read `${GSTACK_HOME:-$HOME/.gstack}/greptile-history.md` (fetched in Step 1, command 8). Filter entries within the retro time window by date. Count entries by type: `fix`, `fp`, `already-fixed`. Compute signal ratio: `(fix + already-fixed) / (fix + already-fixed + fp)`. If no entries exist in the window or the file doesn't exist, skip the Greptile metric row. Skip unparseable lines silently.
 
 **Backlog Health (if TODOS.md exists):** Read `TODOS.md` (fetched in Step 1, command 9). Compute:
 - Total open TODOs (exclude items in `## Completed` section)
@@ -1052,7 +1055,7 @@ Include in the metrics table:
 
 If TODOS.md doesn't exist, skip the Backlog Health row.
 
-**Skill Usage (if analytics exist):** Read `~/.gstack/analytics/skill-usage.jsonl` if it exists. Filter entries within the retro time window by `ts` field. Separate skill activations (no `event` field) from hook fires (`event: "hook_fire"`). Aggregate by skill name. Present as:
+**Skill Usage (if analytics exist):** Read `${GSTACK_HOME:-$HOME/.gstack}/analytics/skill-usage.jsonl` if it exists. Filter entries within the retro time window by `ts` field. Separate skill activations (no `event` field) from hook fires (`event: "hook_fire"`). Aggregate by skill name. Present as:
 
 ```
 | Skill Usage | /ship(12) /qa(8) /review(5) · 3 safety hook fires |
@@ -1060,7 +1063,7 @@ If TODOS.md doesn't exist, skip the Backlog Health row.
 
 If the JSONL file doesn't exist or has no entries in the window, skip the Skill Usage row.
 
-**Eureka Moments (if logged):** Read `~/.gstack/analytics/eureka.jsonl` if it exists. Filter entries within the retro time window by `ts` field. For each eureka moment, show the skill that flagged it, the branch, and a one-line summary of the insight. Present as:
+**Eureka Moments (if logged):** Read `${GSTACK_HOME:-$HOME/.gstack}/analytics/eureka.jsonl` if it exists. Filter entries within the retro time window by `ts` field. For each eureka moment, show the skill that flagged it, the branch, and a one-line summary of the insight. Present as:
 
 ```
 | Eureka Moments | 2 this period |
@@ -1118,7 +1121,7 @@ fix:      27  (54%)  ███████████████████�
 refactor:  2  ( 4%)  ██
 ```
 
-Flag if fix ratio exceeds 50% — this signals a "ship fast, fix fast" pattern that may indicate review gaps.
+Flag if fix ratio exceeds 50% — this signals a debug-heavy or "ship fast, fix fast" period. Do not automatically attribute it to weak review; check surrounding context (incident response, rollout churn, or deliberate iteration) before turning the metric into judgment.
 
 ### Step 6: Hotspot Analysis
 
@@ -1161,6 +1164,7 @@ For each contributor (including the current user), compute:
 
 - **Praise** (1-2 specific things): Anchor in actual commits. Not "great work" — say exactly what was good. Examples: "Shipped the entire auth middleware rewrite in 3 focused sessions with 45% test coverage", "Every PR under 200 LOC — disciplined decomposition."
 - **Opportunity for growth** (1 specific thing): Frame as a leveling-up suggestion, not criticism. Anchor in actual data. Examples: "Test ratio was 12% this week — adding test coverage to the payment module before it gets more complex would pay off", "5 fix commits on the same file suggest the original PR could have used a review pass."
+- If the evidence is too thin for earned praise or a credible growth suggestion, say the signal is thin and stay descriptive. Do not manufacture a 1:1 narrative from sparse commit data.
 
 **If only one contributor (solo repo):** Skip the team breakdown and proceed as before — the retro is personal.
 
@@ -1298,7 +1302,7 @@ Use the Write tool to save the JSON file with this schema:
 }
 ```
 
-**Note:** Only include the `greptile` field if `~/.gstack/greptile-history.md` exists and has entries within the time window. Only include the `backlog` field if `TODOS.md` exists. Only include the `test_health` field if test files were found (command 10 returns > 0). If any has no data, omit the field entirely.
+**Note:** Only include the `greptile` field if `${GSTACK_HOME:-$HOME/.gstack}/greptile-history.md` exists and has entries within the time window. Only include the `backlog` field if `TODOS.md` exists. Only include the `test_health` field if test files were found (command 10 returns > 0). If any has no data, omit the field entirely.
 
 Include test health data in the JSON when test files exist:
 ```json
@@ -1375,8 +1379,8 @@ Check review JSONL logs for plan completion data from /ship runs this period:
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
-cat ~/.gstack/projects/$SLUG/*-reviews.jsonl 2>/dev/null | grep '"skill":"ship"' | grep '"plan_items_total"' || echo "NO_PLAN_DATA"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+cat "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"/*-reviews.jsonl 2>/dev/null | grep '"skill":"ship"' | grep '"plan_items_total"' || echo "NO_PLAN_DATA"
 ```
 
 If plan completion data exists within the retro time window:
@@ -1435,6 +1439,7 @@ Identify the 3 highest-impact things shipped in the window across the whole team
 
 ### 3 Things to Improve
 Specific, actionable, anchored in actual commits. Mix personal and team-level suggestions. Phrase as "to get even better, the team could..."
+If fewer than 3 improvements are genuinely supported by the evidence, show fewer than 3. Do not pad the section just to satisfy the heading.
 
 ### 3 Habits for Next Week
 Small, practical, realistic. Each must be something that takes <5 minutes to adopt. At least one should be team-oriented (e.g., "review each other's PRs same-day").
@@ -1458,10 +1463,10 @@ Locate and run the discovery script using this fallback chain:
 
 ```bash
 DISCOVER_BIN=""
-[ -x ~/.claude/skills/gstack/bin/gstack-global-discover.exe ] && DISCOVER_BIN=~/.claude/skills/gstack/bin/gstack-global-discover.exe
-[ -z "$DISCOVER_BIN" ] && [ -x ~/.claude/skills/gstack/bin/gstack-global-discover ] && DISCOVER_BIN=~/.claude/skills/gstack/bin/gstack-global-discover
+[ -x "$GSTACK_BIN/gstack-global-discover.exe" ] && DISCOVER_BIN="$GSTACK_BIN/gstack-global-discover.exe"
+[ -z "$DISCOVER_BIN" ] && [ -x "$GSTACK_BIN/gstack-global-discover" ] && DISCOVER_BIN="$GSTACK_BIN/gstack-global-discover"
 [ -z "$DISCOVER_BIN" ] && which gstack-global-discover >/dev/null 2>&1 && DISCOVER_BIN=$(which gstack-global-discover)
-[ -z "$DISCOVER_BIN" ] && [ -f ~/.claude/skills/gstack/bin/gstack-global-discover.ts ] && DISCOVER_BIN="bun run ~/.claude/skills/gstack/bin/gstack-global-discover.ts"
+[ -z "$DISCOVER_BIN" ] && [ -f "$GSTACK_BIN/gstack-global-discover.ts" ] && DISCOVER_BIN="bun run $GSTACK_BIN/gstack-global-discover.ts"
 echo "DISCOVER_BIN: $DISCOVER_BIN"
 ```
 
@@ -1679,7 +1684,8 @@ Considering the full cross-project picture.
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-ls -t ~/.gstack/retros/global-*.json 2>/dev/null | head -5
+RETRO_SNAPSHOT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/retros"
+ls -t "$RETRO_SNAPSHOT_ROOT"/global-*.json 2>/dev/null | head -5
 ```
 
 **Only compare against a prior retro with the same `window` value** (e.g., 7d vs 7d). If the most recent prior retro has a different window, skip comparison and note: "Prior global retro used a different window — skipping comparison."
@@ -1691,18 +1697,20 @@ If no prior global retros exist, append: "First global retro recorded — run ag
 ### Global Step 9: Save snapshot
 
 ```bash
-mkdir -p ~/.gstack/retros
+RETRO_SNAPSHOT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/retros"
+mkdir -p "$RETRO_SNAPSHOT_ROOT"
 ```
 
 Determine the next sequence number for today:
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
 today=$(date +%Y-%m-%d)
-existing=$(ls ~/.gstack/retros/global-${today}-*.json 2>/dev/null | wc -l | tr -d ' ')
+RETRO_SNAPSHOT_ROOT="${GSTACK_HOME:-$HOME/.gstack}/retros"
+existing=$(ls "$RETRO_SNAPSHOT_ROOT"/global-${today}-*.json 2>/dev/null | wc -l | tr -d ' ')
 next=$((existing + 1))
 ```
 
-Use the Write tool to save JSON to `~/.gstack/retros/global-${today}-${next}.json`:
+Use the Write tool to save JSON to `${GSTACK_HOME:-$HOME/.gstack}/retros/global-${today}-${next}.json`:
 
 ```json
 {
@@ -1768,4 +1776,4 @@ When the user runs `/retro compare` (or `/retro compare 14d`):
 - Treat merge commits as PR boundaries
 - Do not read CLAUDE.md or other docs — this skill is self-contained
 - On first run (no prior retros), skip comparison sections gracefully
-- **Global mode:** Does NOT require being inside a git repo. Saves snapshots to `~/.gstack/retros/` (not `.context/retros/`). Gracefully skip AI tools that aren't installed. Only compare against prior global retros with the same window value. If streak hits 365d cap, display as "365+ days".
+- **Global mode:** Does NOT require being inside a git repo. Saves snapshots to `${GSTACK_HOME:-$HOME/.gstack}/retros/` (not `.context/retros/`). Gracefully skip AI tools that aren't installed. Only compare against prior global retros with the same window value. If streak hits 365d cap, display as "365+ days".

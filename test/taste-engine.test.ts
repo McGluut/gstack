@@ -9,14 +9,16 @@
  * touched. Each test isolates its own state directory.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { spawnSync } from 'child_process';
+import { describe, test as bunTest, expect, beforeEach, afterEach } from 'bun:test';
+import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin', 'gstack-taste-update');
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 120000 : 10000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT + 30000;
 
 interface Preference {
   value: string;
@@ -36,11 +38,19 @@ interface TasteProfile {
 let stateDir: string;
 let workdir: string;
 
+function test(name: string, fn: () => void, timeout = DEFAULT_CLI_TEST_TIMEOUT) {
+  bunTest(name, fn, timeout);
+}
+
 beforeEach(() => {
   stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'taste-state-'));
   workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'taste-work-'));
   // Initialize a git repo so gstack-taste-update's getSlug() finds a toplevel
-  spawnSync('git', ['init', '-b', 'main'], { cwd: workdir, stdio: 'pipe' });
+  spawnSync('git', ['init', '-b', 'main'], {
+    cwd: workdir,
+    stdio: 'pipe',
+    timeout: CLI_EXEC_TIMEOUT,
+  });
 });
 
 afterEach(() => {
@@ -49,12 +59,13 @@ afterEach(() => {
 });
 
 function run(args: string[]): { status: number | null; stdout: string; stderr: string } {
-  const result = spawnSync('bun', ['run', BIN, ...args], {
+  const execOpts: SpawnSyncOptionsWithStringEncoding = {
     cwd: workdir,
     env: { ...process.env, GSTACK_STATE_DIR: stateDir, HOME: stateDir },
     encoding: 'utf-8',
-    timeout: 10000,
-  });
+    timeout: CLI_EXEC_TIMEOUT,
+  };
+  const result = spawnSync('bun', ['run', BIN, ...args], execOpts);
   return {
     status: result.status,
     stdout: result.stdout?.toString() ?? '',

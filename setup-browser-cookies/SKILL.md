@@ -481,7 +481,7 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 # Setup Browser Cookies
 
-Import logged-in sessions from your real Chromium browser into the headless browse session.
+Import browser cookies from your real Chromium browser into the headless browse session so the session can attempt authenticated flows.
 
 ## Quick Contract
 
@@ -496,7 +496,7 @@ First, check if browse is already connected to the user's real browser:
 ```bash
 $B status 2>/dev/null | grep -q "Mode: cdp" && echo "CDP_MODE=true" || echo "CDP_MODE=false"
 ```
-If `CDP_MODE=true`: tell the user "Not needed — you're connected to your real browser via CDP. Your cookies and sessions are already available." and stop. No cookie import needed.
+If `CDP_MODE=true`: tell the user "Not needed — you're connected to your real browser via CDP. Your current browser session is already available there, though you may still need to verify the target page is actually authenticated." and stop. No cookie import needed.
 
 ## How it works
 
@@ -580,7 +580,7 @@ After the user confirms they're done:
 $B cookies
 ```
 
-Show the user a summary of imported cookies (domain counts).
+Show the user a summary of imported cookies (domain counts), then note that imported cookies are only session inputs. They do not by themselves prove the target page is authenticated, so the next real check is to open the intended site or account page.
 
 ## Notes
 
@@ -589,4 +589,4 @@ Show the user a summary of imported cookies (domain counts).
 - On Windows, browser profile access may depend on the browser being fully closed before import
 - Cookie picker is served on the same port as the browse server (no extra process)
 - Only domain names and cookie counts are shown in the UI — no cookie values are exposed
-- The browse session persists cookies between commands, so imported cookies work immediately
+- The browse session persists cookies between commands, so imported cookies are available immediately, but authentication may still fail if the site also requires fresh storage state, headers, device binding, or a re-login challenge

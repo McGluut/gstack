@@ -861,7 +861,7 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 # Ship: Fully Automated Ship Workflow
 
-You are running the `/ship` workflow. This is a **non-interactive, fully automated** workflow. Do NOT ask for confirmation at any step. The user said `/ship` which means DO IT. Run straight through and output the PR URL at the end.
+You are running the `/ship` workflow. This is an **automation-first** workflow. Do NOT ask for ceremonial confirmation at each step. The user said `/ship`, which means proceed straight through until you hit a real blocker or an explicitly user-owned decision (for example a MINOR/MAJOR version choice, unresolved ASK finding, or TODO creation choice). Output the PR URL at the end if the flow reaches that point.
 
 ## Quick Contract
 
@@ -974,7 +974,7 @@ Check diff size: `git diff <base>...HEAD --stat | tail -1`. If the diff is >200 
 
 If CEO Review is missing, mention as informational ("CEO Review not run — recommended for product changes") but do NOT block.
 
-For Design Review: run `source <($GSTACK_ROOT/bin/gstack-diff-scope <base> 2>/dev/null)`. If `SCOPE_FRONTEND=true` and no design review (plan-design-review or design-review-lite) exists in the dashboard, mention: "Design Review not run — this PR changes frontend code. The lite design check will run automatically in Step 9, but consider running /design-review for a full visual audit post-implementation." Still never block.
+For Design Review: run `source <("$GSTACK_BIN/gstack-diff-scope" <base> 2>/dev/null)`. If `SCOPE_FRONTEND=true` and no design review (plan-design-review or design-review-lite) exists in the dashboard, mention: "Design Review not run — this PR changes frontend code. The lite design check will run automatically in Step 9, but consider running /design-review for a full visual audit post-implementation." Still never block.
 
 Continue to Step 2 — do NOT block or ask. Ship runs its own review in Step 9.
 
@@ -1189,8 +1189,12 @@ Running bare test migrations without INSTANCE hits an orphan DB and corrupts str
 Run both test suites in parallel:
 
 ```bash
-bin/test-lane 2>&1 | tee /tmp/ship_tests.txt &
-npm run test 2>&1 | tee /tmp/ship_vitest.txt &
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+SHIP_TESTS_LOG=$(mktemp "$TMP_ROOT/ship-tests-XXXXXX.txt")
+SHIP_VITEST_LOG=$(mktemp "$TMP_ROOT/ship-vitest-XXXXXX.txt")
+bin/test-lane 2>&1 | tee "$SHIP_TESTS_LOG" &
+npm run test 2>&1 | tee "$SHIP_VITEST_LOG" &
 wait
 ```
 
@@ -1349,7 +1353,10 @@ Map runner → test file: `post_generation_eval_runner.rb` → `post_generation_
 `/ship` is a pre-merge gate, so always use full tier (Sonnet structural + Opus persona judges).
 
 ```bash
-EVAL_JUDGE_TIER=full EVAL_VERBOSE=1 bin/test-lane --eval test/evals/<suite>_eval_test.rb 2>&1 | tee /tmp/ship_evals.txt
+TMP_ROOT="${TMPDIR:-${TMP:-.gstack/tmp}}"
+mkdir -p "$TMP_ROOT"
+SHIP_EVALS_LOG=$(mktemp "$TMP_ROOT/ship-evals-XXXXXX.txt")
+EVAL_JUDGE_TIER=full EVAL_VERBOSE=1 bin/test-lane --eval test/evals/<suite>_eval_test.rb 2>&1 | tee "$SHIP_EVALS_LOG"
 ```
 
 If multiple suites need to run, run them sequentially (each needs a test lane). If the first suite fails, stop immediately — don't burn API cost on remaining suites.
@@ -1904,7 +1911,7 @@ Before reviewing code quality, check: **did they build what was requested — no
 
 Review the diff for structural issues that tests don't catch.
 
-1. Read `.factory/skills/gstack/review/checklist.md`. If the file cannot be read, **STOP** and report the error.
+1. Read `${GSTACK_ROOT:-$HOME/.factory/skills/gstack}/review/checklist.md`. If the file cannot be read, **STOP** and report the error.
 
 2. Run `git diff origin/<base>` to get the full diff (scoped to feature changes against the freshly-fetched base branch).
 
@@ -1951,7 +1958,7 @@ source <($GSTACK_BIN/gstack-diff-scope <base> 2>/dev/null)
 
 1. **Check for DESIGN.md.** If `DESIGN.md` or `design-system.md` exists in the repo root, read it. All design findings are calibrated against it — patterns blessed in DESIGN.md are not flagged. If not found, use universal design principles.
 
-2. **Read `.factory/skills/gstack/review/design-checklist.md`.** If the file cannot be read, skip design review with a note: "Design checklist not found — skipping design review."
+2. **Read `$GSTACK_ROOT/review/design-checklist.md`.** If the file cannot be read, skip design review with a note: "Design checklist not found — skipping design review."
 
 3. **Read each changed frontend file** (full file, not just diff hunks). Frontend files are identified by the patterns listed in the checklist.
 
@@ -2254,7 +2261,7 @@ Output a summary header: `Pre-Landing Review: N issues (X critical, Y informatio
 
 9. Persist the review result to the review log:
 ```bash
-$GSTACK_ROOT/bin/gstack-review-log '{"skill":"review","timestamp":"TIMESTAMP","status":"STATUS","issues_found":N,"critical":N,"informational":N,"quality_score":SCORE,"specialists":SPECIALISTS_JSON,"findings":FINDINGS_JSON,"commit":"'"$(git rev-parse --short HEAD)"'","via":"ship"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"review","timestamp":"TIMESTAMP","status":"STATUS","issues_found":N,"critical":N,"informational":N,"quality_score":SCORE,"specialists":SPECIALISTS_JSON,"findings":FINDINGS_JSON,"commit":"'"$(git rev-parse --short HEAD)"'","via":"ship"}'
 ```
 Substitute TIMESTAMP (ISO 8601), STATUS ("clean" if no issues, "issues_found" otherwise),
 and N values from the summary counts above. The `via:"ship"` distinguishes from standalone `/review` runs.
@@ -2272,7 +2279,7 @@ Save the review output — it goes into the PR body in Step 19.
 
 **Subagent prompt:**
 
-> You are classifying Greptile review comments for a /ship workflow. Read `.factory/skills/gstack/review/greptile-triage.md` and follow the fetch, filter, classify, and **escalation detection** steps. Do NOT fix code, do NOT reply to comments, do NOT commit — report only.
+> You are classifying Greptile review comments for a /ship workflow. Read `${GSTACK_ROOT:-$HOME/.factory/skills/gstack}/review/greptile-triage.md` and follow the fetch, filter, classify, and **escalation detection** steps. Do NOT fix code, do NOT reply to comments, do NOT commit — report only.
 >
 > For each comment, assign: `classification` (`valid_actionable`, `already_fixed`, `false_positive`, `suppressed`), `escalation_tier` (1 or 2), the file:line or [top-level] tag, body summary, and permalink URL.
 >
@@ -2634,7 +2641,7 @@ echo "Drift repaired: package.json synced to $REPAIR_VERSION. No version bump pe
 
 Cross-reference the project's TODOS.md against the changes being shipped. Mark completed items automatically; prompt only if the file is missing or disorganized.
 
-Read `.factory/skills/gstack/review/TODOS-format.md` for the canonical format reference.
+Read `${GSTACK_ROOT:-$HOME/.factory/skills/gstack}/review/TODOS-format.md` for the canonical format reference.
 
 **1. Check if TODOS.md exists** in the repository root.
 
@@ -2842,7 +2849,7 @@ git push -u origin <branch-name>
 
 **Subagent prompt:**
 
-> You are executing the /document-release workflow after a code push. Read the full skill file `${HOME}/.factory/skills/gstack/document-release/SKILL.md` and execute its complete workflow end-to-end, including CHANGELOG clobber protection, doc exclusions, risky-change gates, and named staging. Do NOT attempt to edit the PR body — no PR exists yet. Branch: `<branch>`, base: `<base>`.
+> You are executing the /document-release workflow after a code push. Read the full skill file `${GSTACK_ROOT:-$HOME/.factory/skills/gstack}/document-release/SKILL.md` and execute its complete workflow end-to-end, including CHANGELOG clobber protection, doc exclusions, risky-change gates, and named staging. Do NOT attempt to edit the PR body — no PR exists yet. Branch: `<branch>`, base: `<base>`.
 >
 > After completing the workflow, output a single JSON object on the LAST LINE of your response (no other text after it):
 > `{"files_updated":["README.md","CLAUDE.md",...],"commit_sha":"abc1234","pushed":true,"documentation_section":"<markdown block for PR body's ## Documentation section>"}`
@@ -2970,13 +2977,15 @@ Print the branch name, remote URL, and instruct the user to create the PR/MR man
 Log coverage and plan completion data so `/retro` can track trends:
 
 ```bash
-eval "$($GSTACK_ROOT/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+mkdir -p "$PROJECT_STORE"
 ```
 
-Append to `~/.gstack/projects/$SLUG/$BRANCH-reviews.jsonl`:
+Append to `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/$BRANCH-reviews.jsonl`:
 
 ```bash
-echo '{"skill":"ship","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","coverage_pct":COVERAGE_PCT,"plan_items_total":PLAN_TOTAL,"plan_items_done":PLAN_DONE,"verification_result":"VERIFY_RESULT","version":"VERSION","branch":"BRANCH"}' >> ~/.gstack/projects/$SLUG/$BRANCH-reviews.jsonl
+echo '{"skill":"ship","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","coverage_pct":COVERAGE_PCT,"plan_items_total":PLAN_TOTAL,"plan_items_done":PLAN_DONE,"verification_result":"VERIFY_RESULT","version":"VERSION","branch":"BRANCH"}' >> "$PROJECT_STORE/$BRANCH-reviews.jsonl"
 ```
 
 Substitute from earlier steps:

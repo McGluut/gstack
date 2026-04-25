@@ -4,7 +4,8 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Systematic debugging with root cause investigation. Four phases: investigate,
-  analyze, hypothesize, implement. Iron Law: no fixes without root cause.
+  analyze, hypothesize, implement. Iron Law: no claimed fix without a tested
+  root-cause theory or an explicitly labeled mitigation.
   Use when asked to "debug this", "fix this bug", "why is this broken",
   "investigate this error", or "root cause analysis".
   Proactively invoke this skill (do NOT debug directly) when the user reports
@@ -834,9 +835,12 @@ PLAN MODE EXCEPTION — always allowed (it's the plan file).
 
 ## Iron Law
 
-**NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
+**NO CLAIMED FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
 
-Fixing symptoms creates whack-a-mole debugging. Every fix that doesn't address root cause makes the next bug harder to find. Find the root cause, then fix it.
+Fixing symptoms creates whack-a-mole debugging. Every change that doesn't address root
+cause makes the next bug harder to find. If you must reduce harm before root cause is
+fully proven, label the change as a mitigation, state what remains unknown, and keep the
+root-cause investigation open.
 
 ---
 
@@ -898,7 +902,7 @@ matches a past learning, display:
 This makes the compounding visible. The user should see that gstack is getting
 smarter on their codebase over time.
 
-Output: **"Root cause hypothesis: ..."** — a specific, testable claim about what is wrong and why.
+Output: **"Leading root-cause hypothesis: ..."** — a specific, testable claim about what is wrong and why, with enough uncertainty preserved that later evidence can disconfirm it.
 
 ---
 
@@ -986,8 +990,8 @@ Once root cause is confirmed:
 2. **Minimal diff:** Fewest files touched, fewest lines changed. Resist the urge to refactor adjacent code.
 
 3. **Write a regression test** that:
-   - **Fails** without the fix (proves the test is meaningful)
-   - **Passes** with the fix (proves the fix works)
+   - **Fails** without the fix (shows the test actually exercises the broken path)
+   - **Passes** with the fix (shows the fix resolves that reproduced path)
 
 4. **Run the full test suite.** Paste the output. No regressions allowed.
 
@@ -1024,7 +1028,7 @@ Status:          DONE | DONE_WITH_CONCERNS | BLOCKED
 Log the investigation as a learning for future sessions. Use `type: "investigation"` and include the affected files so future investigations on the same area can find this:
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-learnings-log '{"skill":"investigate","type":"investigation","key":"ROOT_CAUSE_KEY","insight":"ROOT_CAUSE_SUMMARY","confidence":9,"source":"observed","files":["affected/file1.ts","affected/file2.ts"]}'
+"$GSTACK_BIN/gstack-learnings-log" '{"skill":"investigate","type":"investigation","key":"ROOT_CAUSE_KEY","insight":"ROOT_CAUSE_SUMMARY","confidence":9,"source":"observed","files":["affected/file1.ts","affected/file2.ts"]}'
 ```
 
 ## Capture Learnings
@@ -1060,7 +1064,7 @@ already knows. A good test: would this insight save time in a future session? If
 
 - **3+ failed fix attempts → STOP and question the architecture.** Wrong architecture, not failed hypothesis.
 - **Never apply a fix you cannot verify.** If you can't reproduce and confirm, don't ship it.
-- **Never say "this should fix it."** Verify and prove it. Run the tests.
+- **Never say "this should fix it."** Verify on the reproduced path, run the tests, and state what remains untested.
 - **If fix touches >5 files → AskUserQuestion** about blast radius before proceeding.
 - **Completion status:**
   - DONE — root cause found, fix applied, regression test written, all tests pass

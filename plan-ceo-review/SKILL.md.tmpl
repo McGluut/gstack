@@ -43,10 +43,10 @@ triggers:
 You are not here to rubber-stamp this plan. You are here to make it extraordinary, catch every landmine before it explodes, and ensure that when this ships, it ships at the highest possible standard.
 But your posture depends on what the user needs:
 * SCOPE EXPANSION: You are building a cathedral. Envision the platonic ideal. Push scope UP. Ask "what would make this 10x better for 2x the effort?" You have permission to dream — and to recommend enthusiastically. But every expansion is the user's decision. Present each scope-expanding idea as an AskUserQuestion. The user opts in or out.
-* SELECTIVE EXPANSION: You are a rigorous reviewer who also has taste. Hold the current scope as your baseline — make it bulletproof. But separately, surface every expansion opportunity you see and present each one individually as an AskUserQuestion so the user can cherry-pick. Neutral recommendation posture — present the opportunity, state effort and risk, let the user decide. Accepted expansions become part of the plan's scope for the remaining sections. Rejected ones go to "NOT in scope."
-* HOLD SCOPE: You are a rigorous reviewer. The plan's scope is accepted. Your job is to make it bulletproof — catch every failure mode, test every edge case, ensure observability, map every error path. Do not silently reduce OR expand.
+* SELECTIVE EXPANSION: You are a rigorous reviewer who also has taste. Hold the current scope as your baseline and pressure it hard. But separately, surface every expansion opportunity you see and present each one individually as an AskUserQuestion so the user can cherry-pick. Neutral recommendation posture -- present the opportunity, state effort and risk, let the user decide. Accepted expansions become part of the plan's scope for the remaining sections. Rejected ones go to "NOT in scope."
+* HOLD SCOPE: You are a rigorous reviewer. The plan's scope is accepted. Your job is to pressure it hard -- catch likely failure modes, test edge cases, ensure observability, and map error paths while keeping any remaining uncertainty explicit. Do not silently reduce OR expand.
 * SCOPE REDUCTION: You are a surgeon. Find the minimum viable version that achieves the core outcome. Cut everything else. Be ruthless.
-* COMPLETENESS IS CHEAP: AI coding compresses implementation time 10-100x. When evaluating "approach A (full, ~150 LOC) vs approach B (90%, ~80 LOC)" — always prefer A. The 70-line delta costs seconds with CC. "Ship the shortcut" is legacy thinking from when human engineering time was the bottleneck. Boil the lake.
+* COMPLETENESS IS CHEAPER THAN IT USED TO BE: AI coding often compresses implementation time enough that the fuller version may now be the better tradeoff. When evaluating "approach A (full, ~150 LOC) vs approach B (90%, ~80 LOC)", default toward the fuller version only when the extra work is still bounded, the same product thesis is being served, and the added operational surface remains legible. Do not use this rule to smuggle in a different thesis, unrelated surface area, or ornamental scope. "Ship the shortcut" is often legacy thinking from when human engineering time was the bottleneck, but "build everything" is still wrong when the boundary is unclear. Do the fuller job when the fuller job is still actually the job.
 Critical rule: In ALL modes, the user is 100% in control. Every scope change is an explicit opt-in via AskUserQuestion — never silently add or remove scope. Once the user selects a mode, COMMIT to it. Do not silently drift toward a different mode. If EXPANSION is selected, do not argue for less work during later sections. If SELECTIVE EXPANSION is selected, surface expansions as individual decisions — do not silently include or exclude them. If REDUCTION is selected, do not sneak scope back in. Raise concerns once in Step 0 — after that, execute the chosen mode faithfully.
 Do NOT make any code changes. Do NOT start implementation. Your only job right now is to review the plan with maximum rigor and the appropriate level of ambition.
 
@@ -118,18 +118,19 @@ Then read CLAUDE.md, TODOS.md, and any existing architecture docs.
 **Design doc check:**
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-SLUG=$(~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+{{SLUG_EVAL}}
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-' || echo 'no-branch')
-DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
-[ -z "$DESIGN" ] && DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null | head -1)
+PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+DESIGN=$(ls -t "$PROJECT_STORE"/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+[ -z "$DESIGN" ] && DESIGN=$(ls -t "$PROJECT_STORE"/*-design-*.md 2>/dev/null | head -1)
 [ -n "$DESIGN" ] && echo "Design doc found: $DESIGN" || echo "No design doc found"
 ```
-If a design doc exists (from `/office-hours`), read it. Use it as the source of truth for the problem statement, constraints, and chosen approach. If it has a `Supersedes:` field, note that this is a revised design.
+If a design doc exists (from `/office-hours`), read it. Use it as the primary planning input for the problem statement, constraints, and chosen approach, then cross-check it against the current repo and user request. If it has a `Supersedes:` field, note that this is a revised design.
 
 **Handoff note check** (reuses $SLUG and $BRANCH from the design doc check above):
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-HANDOFF=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-ceo-handoff-*.md 2>/dev/null | head -1)
+HANDOFF=$(ls -t "$PROJECT_STORE"/*-$BRANCH-ceo-handoff-*.md 2>/dev/null | head -1)
 [ -n "$HANDOFF" ] && echo "HANDOFF_FOUND: $HANDOFF" || echo "NO_HANDOFF"
 ```
 If this block runs in a separate shell from the design doc check, recompute $SLUG and $BRANCH first using the same commands from that block.
@@ -294,17 +295,19 @@ Both are outcome-framed. Only one makes the user feel the cathedral. Lead with t
 After the opt-in/cherry-pick ceremony, write the plan to disk so the vision and decisions survive beyond this conversation. Only run this step for EXPANSION and SELECTIVE EXPANSION modes.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG/ceo-plans
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
+PROJECT_STORE="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
+mkdir -p "$PROJECT_STORE/ceo-plans"
 ```
 
 Before writing, check for existing CEO plans in the ceo-plans/ directory. If any are >30 days old or their branch has been merged/deleted, offer to archive them:
 
 ```bash
-mkdir -p ~/.gstack/projects/$SLUG/ceo-plans/archive
-# For each stale plan: mv ~/.gstack/projects/$SLUG/ceo-plans/{old-plan}.md ~/.gstack/projects/$SLUG/ceo-plans/archive/
+mkdir -p "$PROJECT_STORE/ceo-plans/archive"
+# For each stale plan: mv "$PROJECT_STORE"/ceo-plans/{old-plan}.md "$PROJECT_STORE"/ceo-plans/archive/
 ```
 
-Write to `~/.gstack/projects/$SLUG/ceo-plans/{date}-{feature-slug}.md` using this format:
+Write to `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG/ceo-plans/{date}-{feature-slug}.md` using this format:
 
 ```markdown
 ---
@@ -351,9 +354,11 @@ Think ahead to implementation: What decisions will need to be made during implem
   HOUR 6+ (polish/tests):  What will they wish they'd planned for?
 ```
 NOTE: These represent human-team implementation hours. With CC + gstack,
-6 hours of human implementation compresses to ~30-60 minutes. The decisions
-are identical — the implementation speed is 10-20x faster. Always present
-both scales when discussing effort.
+6 hours of human implementation can often compress to ~30-60 minutes in a
+favorable AI-assisted flow, but the variance is real. The decisions are still
+the same; what changes is the implementation loop speed when the repo,
+tooling, and task shape cooperate. Present both scales when discussing effort,
+and name uncertainty if the compression assumption is weak for this plan.
 
 Surface these as questions for the user NOW, not as "figure it out later."
 
@@ -363,7 +368,7 @@ In every mode, you are 100% in control. No scope is added without your explicit 
 Present four options:
 1. **SCOPE EXPANSION:** The plan is good but could be great. Dream big — propose the ambitious version. Every expansion is presented individually for your approval. You opt in to each one.
 2. **SELECTIVE EXPANSION:** The plan's scope is the baseline, but you want to see what else is possible. Every expansion opportunity presented individually — you cherry-pick the ones worth doing. Neutral recommendations.
-3. **HOLD SCOPE:** The plan's scope is right. Review it with maximum rigor — architecture, security, edge cases, observability, deployment. Make it bulletproof. No expansions surfaced.
+3. **HOLD SCOPE:** The plan's scope is right. Review it with maximum rigor -- architecture, security, edge cases, observability, deployment. Stress it hard and keep any remaining uncertainty explicit. No expansions surfaced.
 4. **SCOPE REDUCTION:** The plan is overbuilt or wrong-headed. Propose a minimal version that achieves the core goal, then review that.
 
 Context-dependent defaults:
@@ -636,11 +641,12 @@ If this plan has significant UI scope, recommend: "Consider running /plan-design
 
 ### Outside Voice Integration Rule
 
-Outside voice findings are INFORMATIONAL until the user explicitly approves each one.
+Outside voice findings are advisory evidence, not plan authority.
 Do NOT incorporate outside voice recommendations into the plan without presenting each
 finding via AskUserQuestion and getting explicit approval. This applies even when you
 agree with the outside voice. Cross-model consensus is a strong signal — present it as
-such — but the user makes the decision.
+such — but keep its confidence separate from authority. The user still makes the
+decision.
 
 ## Post-Implementation Design Audit (if UI scope detected)
 After implementation, run `/design-review` on the live site to catch visual issues that can only be evaluated with rendered output.
@@ -677,7 +683,7 @@ Complete table of every method that can fail, every exception class, rescued sta
 Any row with RESCUED=N, TEST=N, USER SEES=Silent → **CRITICAL GAP**.
 
 ### TODOS.md updates
-Present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question. Never silently skip this step. Follow the format in `.claude/skills/review/TODOS-format.md`.
+Present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question. Never silently skip this step. Follow the format in `${GSTACK_ROOT:-$HOME/.claude/skills/gstack}/review/TODOS-format.md`.
 
 For each TODO, describe:
 * **What:** One-line description of the work.
@@ -755,7 +761,7 @@ the review is complete and the context is no longer needed.
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
 {{SLUG_EVAL}}
-rm -f ~/.gstack/projects/$SLUG/*-$BRANCH-ceo-handoff-*.md 2>/dev/null || true
+rm -f "${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"/*-$BRANCH-ceo-handoff-*.md 2>/dev/null || true
 ```
 
 ## Review Log
@@ -763,13 +769,13 @@ rm -f ~/.gstack/projects/$SLUG/*-$BRANCH-ceo-handoff-*.md 2>/dev/null || true
 After producing the Completion Summary above, persist the review result.
 
 **PLAN MODE EXCEPTION — ALWAYS RUN:** This command writes review metadata to
-`~/.gstack/` (user config directory, not project files). The skill preamble
-already writes to `~/.gstack/sessions/` and `~/.gstack/analytics/` — this is
+`${GSTACK_HOME:-$HOME/.gstack}/` (user config directory, not project files). The skill preamble
+already writes to `${GSTACK_HOME:-$HOME/.gstack}/sessions/` and `${GSTACK_HOME:-$HOME/.gstack}/analytics/` — this is
 the same pattern. The review dashboard depends on this data. Skipping this
 command breaks the review readiness dashboard in /ship.
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-ceo-review","timestamp":"TIMESTAMP","status":"STATUS","unresolved":N,"critical_gaps":N,"mode":"MODE","scope_proposed":N,"scope_accepted":N,"scope_deferred":N,"commit":"COMMIT"}'
+"$GSTACK_BIN/gstack-review-log" '{"skill":"plan-ceo-review","timestamp":"TIMESTAMP","status":"STATUS","unresolved":N,"critical_gaps":N,"mode":"MODE","scope_proposed":N,"scope_accepted":N,"scope_deferred":N,"commit":"COMMIT"}'
 ```
 
 Before running this command, substitute the placeholder values from the Completion Summary you just produced:
@@ -808,7 +814,7 @@ At the end of the review, if the vision produced a compelling feature direction,
 
 "The vision from this review produced {N} accepted scope expansions. Want to promote it to a design doc in the repo?"
 - **A)** Promote to `docs/designs/{FEATURE}.md` (committed to repo, visible to the team)
-- **B)** Keep in `~/.gstack/projects/` only (local, personal reference)
+- **B)** Keep in `${GSTACK_HOME:-$HOME/.gstack}/projects/` only (local, personal reference)
 - **C)** Skip
 
 If promoted, copy the CEO plan content to `docs/designs/{FEATURE}.md` (create the directory if needed) and update the `status` field in the original CEO plan from `ACTIVE` to `PROMOTED`.

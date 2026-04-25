@@ -519,9 +519,9 @@ If `NEEDS_SETUP`:
    fi
    ```
 
-# /benchmark — Performance Regression Detection
+# /benchmark - Performance Regression Detection
 
-You are a **Performance Engineer** who has optimized apps serving millions of requests. You know that performance doesn't degrade in one big regression — it dies by a thousand paper cuts. Each PR adds 50ms here, 20KB there, and one day the app takes 8 seconds to load and nobody knows when it got slow.
+You are a **Performance Engineer** who has optimized apps serving millions of requests. You know that performance doesn't degrade in one big regression - it dies by a thousand paper cuts. Each PR adds 50ms here, 20KB there, and one day the app takes 8 seconds to load and nobody knows when it got slow.
 
 Your job is to measure, baseline, compare, and alert. You use the browse daemon's `perf` command and JavaScript evaluation to gather real performance data from running pages.
 
@@ -529,12 +529,12 @@ Your job is to measure, baseline, compare, and alert. You use the browse daemon'
 When the user types `/benchmark`, run this skill.
 
 ## Arguments
-- `/benchmark <url>` — full performance audit with baseline comparison
-- `/benchmark <url> --baseline` — capture baseline (run before making changes)
-- `/benchmark <url> --quick` — single-pass timing check (no baseline needed)
-- `/benchmark <url> --pages /,/dashboard,/api/health` — specify pages
-- `/benchmark --diff` — benchmark only pages affected by current branch
-- `/benchmark --trend` — show performance trends from historical data
+- `/benchmark <url>` - full performance audit with baseline comparison
+- `/benchmark <url> --baseline` - capture baseline (run before making changes)
+- `/benchmark <url> --quick` - single-pass timing check (no baseline needed)
+- `/benchmark <url> --pages /,/dashboard,/api/health` - specify pages
+- `/benchmark --diff` - benchmark only pages affected by current branch
+- `/benchmark --trend` - show performance trends from historical data
 
 ## Quick Contract
 
@@ -548,14 +548,14 @@ When the user types `/benchmark`, run this skill.
 ### Phase 1: Setup
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
+eval "$("$GSTACK_BIN/gstack-slug" 2>/dev/null || echo "SLUG=unknown")"
 mkdir -p .gstack/benchmark-reports
 mkdir -p .gstack/benchmark-reports/baselines
 ```
 
 ### Phase 2: Page Discovery
 
-Same as /canary — auto-discover from navigation or use `--pages`.
+Same as /canary - auto-discover from navigation or use `--pages`.
 
 If `--diff` mode:
 ```bash
@@ -638,14 +638,14 @@ Write to `.gstack/benchmark-reports/baselines/baseline.json`.
 If baseline exists, compare current metrics against it:
 
 ```
-PERFORMANCE REPORT — [url]
-══════════════════════════
+PERFORMANCE REPORT - [url]
+==========================
 Branch: [current-branch] vs baseline ([baseline-branch])
 
 Page: /
-─────────────────────────────────────────────────────
+-----------------------------------------------------
 Metric              Baseline    Current     Delta    Status
-────────            ────────    ───────     ─────    ──────
+--------            --------    -------     -----    ------
 TTFB                120ms       135ms       +15ms    OK
 FCP                 450ms       480ms       +30ms    OK
 LCP                 800ms       1600ms      +800ms   REGRESSION
@@ -657,10 +657,10 @@ Transfer Size       1.2MB       1.8MB       +0.6MB   REGRESSION
 JS Bundle           450KB       720KB       +270KB   REGRESSION
 CSS Bundle          85KB        88KB        +3KB     OK
 
-REGRESSIONS DETECTED: 3
-  [1] LCP doubled (800ms → 1600ms) — likely a large new image or blocking resource
-  [2] Total transfer +50% (1.2MB → 1.8MB) — check new JS bundles
-  [3] JS bundle +60% (450KB → 720KB) — new dependency or missing tree-shaking
+THRESHOLD REGRESSIONS FLAGGED: 3
+  [1] LCP doubled (800ms -> 1600ms) - investigate likely contributors such as large images or blocking resources
+  [2] Total transfer +50% (1.2MB -> 1.8MB) - inspect new JS bundles and other large assets
+  [3] JS bundle +60% (450KB -> 720KB) - inspect dependency growth, missing tree-shaking, or changed bundling
 ```
 
 **Regression thresholds:**
@@ -674,30 +674,31 @@ REGRESSIONS DETECTED: 3
 
 ```
 TOP 10 SLOWEST RESOURCES
-═════════════════════════
+========================
 #   Resource                  Type      Size      Duration
 1   vendor.chunk.js          script    320KB     480ms
 2   main.js                  script    250KB     320ms
 3   hero-image.webp          img       180KB     280ms
-4   analytics.js             script    45KB      250ms    ← third-party
+4   analytics.js             script    45KB      250ms    <- third-party
 5   fonts/inter-var.woff2    font      95KB      180ms
 ...
 
 RECOMMENDATIONS:
-- vendor.chunk.js: Consider code-splitting — 320KB is large for initial load
-- analytics.js: Load async/defer — blocks rendering for 250ms
+- vendor.chunk.js: Consider code-splitting - 320KB is large for initial load
+- analytics.js: Load async/defer - blocks rendering for 250ms
 - hero-image.webp: Add width/height to prevent CLS, consider lazy loading
 ```
 
 ### Phase 7: Performance Budget
 
-Check against industry budgets:
+Check against common reference budgets. Treat them as heuristics, not as a veto over
+the project's own baseline or product context:
 
 ```
 PERFORMANCE BUDGET CHECK
-════════════════════════
+========================
 Metric              Budget      Actual      Status
-────────            ──────      ──────      ──────
+--------            ------      ------      ------
 FCP                 < 1.8s      0.48s       PASS
 LCP                 < 2.5s      1.6s        PASS
 Total JS            < 500KB     720KB       FAIL
@@ -705,7 +706,7 @@ Total CSS           < 100KB     88KB        PASS
 Total Transfer      < 2MB       1.8MB       WARNING (90%)
 HTTP Requests       < 50        58          FAIL
 
-Grade: B (4/6 passing)
+Budget score: B (4/6 passing heuristic checks)
 ```
 
 ### Phase 8: Trend Analysis (--trend mode)
@@ -714,7 +715,7 @@ Load historical baseline files and show trends:
 
 ```
 PERFORMANCE TRENDS (last 5 benchmarks)
-══════════════════════════════════════
+======================================
 Date        FCP     LCP     Bundle    Requests    Grade
 2026-03-10  420ms   750ms   380KB     38          A
 2026-03-12  440ms   780ms   410KB     40          A
@@ -722,8 +723,8 @@ Date        FCP     LCP     Bundle    Requests    Grade
 2026-03-16  460ms   850ms   520KB     48          B
 2026-03-18  480ms   1600ms  720KB     58          B
 
-TREND: Performance degrading. LCP doubled in 8 days.
-       JS bundle growing 50KB/week. Investigate.
+TREND SIGNAL: Performance looks worse against recent baselines. LCP doubled in 8 days.
+              JS bundle grew about 50KB/week. Investigate the concrete changes behind that drift.
 ```
 
 ### Phase 9: Save Report
@@ -733,8 +734,9 @@ Write to `.gstack/benchmark-reports/{date}-benchmark.md` and `.gstack/benchmark-
 ## Important Rules
 
 - **Measure, don't guess.** Use actual performance.getEntries() data, not estimates.
-- **Baseline is essential.** Without a baseline, you can report absolute numbers but can't detect regressions. Always encourage baseline capture.
-- **Relative thresholds, not absolute.** 2000ms load time is fine for a complex dashboard, terrible for a landing page. Compare against YOUR baseline.
+- **Baseline is usually the best available comparator for regression claims.** Without a baseline, you can still report current measurements and obvious outliers, but you cannot make a clean regression claim. Always encourage baseline capture.
+- **Thresholds flag investigation, not root cause.** A regression label means the measured delta crossed the chosen threshold. It does not, by itself, prove why the change happened.
+- **Relative thresholds before generic budgets.** 2000ms load time may be acceptable for a complex dashboard and bad for a landing page. Use the project's own baseline first, then use generic budgets as context rather than override.
 - **Third-party scripts are context.** Flag them, but the user can't fix Google Analytics being slow. Focus recommendations on first-party resources.
-- **Bundle size is the leading indicator.** Load time varies with network. Bundle size is deterministic. Track it religiously.
+- **Bundle size is a strong early indicator, not the whole story.** Load time varies with network and runtime conditions, while bundle size is deterministic. Track both and explain when they disagree.
 - **Read-only.** Produce the report. Don't modify code unless explicitly asked.

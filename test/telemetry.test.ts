@@ -8,9 +8,9 @@ import { resolveBash } from './helpers/bash';
 const ROOT = path.resolve(import.meta.dir, '..');
 const BIN = path.join(ROOT, 'bin');
 const BASH = resolveBash();
-const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 20000 : 15000;
-const DEFAULT_CLI_TEST_TIMEOUT = process.platform === 'win32' ? 10000 : 7000;
-const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 5000;
+const CLI_EXEC_TIMEOUT = process.platform === 'win32' ? 120000 : 15000;
+const DEFAULT_CLI_TEST_TIMEOUT = CLI_EXEC_TIMEOUT + 30000;
+const SLOW_CLI_TIMEOUT = CLI_EXEC_TIMEOUT + 60000;
 
 // Each test gets a fresh temp directory for GSTACK_STATE_DIR
 let tmpDir: string;
